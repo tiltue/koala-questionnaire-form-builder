@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "private": true,
     "dependencies": {
-        "@ckeditor/ckeditor5-react": "^3.0.0",
+        "@ckeditor/ckeditor5-react": "^6.2.0",
         "@helsenorge/autosuggest": "^28.2.1",
         "@helsenorge/ckeditor5-build-markdown": "^24.0.0",
         "@helsenorge/core-utils": "^28.2.1",
@@ -11,7 +11,7 @@
         "@helsenorge/designsystem-react": "^4.3.0",
         "@helsenorge/file-upload": "^28.2.1",
         "@helsenorge/form": "^28.2.1",
-        "@helsenorge/refero": "13.2.2",
+        "@helsenorge/refero": "^21.3.3",
         "@helsenorge/toolkit": "^21.3.0-prerelease",
         "@nosferatu500/react-sortable-tree": "^3.0.3",
         "axios": "^1.13.2",
@@ -20,7 +20,7 @@
         "i18next": "^19.6.3",
         "idb": "^6.0.0",
         "immer": "^10.2.0",
-        "jose": "^6.1.2",
+        "jose": "^6.1.1",
         "openid-client": "^4.7.2",
         "qs": "^6.11.2",
         "react": "^17.0.2",
@@ -38,7 +38,7 @@
         "remove-markdown": "^0.5.0"
     },
     "scripts": {
-        "start": "node scripts/start.js",
+        "start": "react-scripts --openssl-legacy-provider start",
         "build": "react-scripts build",
         "test": "react-scripts test",
         "lint": "eslint ./src/**/*.{js,ts,tsx} --quiet --fix",

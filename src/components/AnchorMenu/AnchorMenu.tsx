@@ -18,13 +18,16 @@ import '@nosferatu500/react-sortable-tree/style.css';
 import { isIgnorableItem } from '../../helpers/itemControl';
 import { generateItemButtons } from './ItemButtons/ItemButtons';
 import { canTypeHaveChildren, getInitialItemConfig } from '../../helpers/questionTypeFeatures';
+import Btn from '../Btn/Btn';
+import { createQuestionnaireResponse, QuestionnaireResponsePayload } from '../../services/questionnaireResponseService';
 
-interface AnchorMenuProps {
+export interface AnchorMenuProps {
     qOrder: OrderItem[];
     qItems: Items;
     qCurrentItem: MarkedItem | undefined;
     validationErrors: ValidationErrors[];
     dispatch: React.Dispatch<ActionType>;
+    questionnaireJson?: string;
 }
 
 interface Node {
@@ -85,6 +88,46 @@ const YourExternalNodeComponent = DragSource(
 const AnchorMenu = (props: AnchorMenuProps): JSX.Element => {
     const { t } = useTranslation();
     const [collapsedNodes, setCollapsedNodes] = React.useState<string[]>([]);
+    const [uploadStatus, setUploadStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [uploadError, setUploadError] = React.useState<string | null>(null);
+
+    const handleUploadQuestionnaire = async () => {
+        if (!props.questionnaireJson) {
+            return;
+        }
+
+        setUploadStatus('loading');
+        setUploadError(null);
+
+        try {
+            const parsedQuestionnaire = JSON.parse(props.questionnaireJson);
+            const questionnaireReference =
+                parsedQuestionnaire?.url ||
+                parsedQuestionnaire?.id ||
+                parsedQuestionnaire?.identifier?.[0]?.value ||
+                'Questionnaire/temporary';
+
+            const questionnaireResponsePayload: QuestionnaireResponsePayload = {
+                resourceType: 'QuestionnaireResponse',
+                status: 'completed',
+                authored: new Date().toISOString(),
+                questionnaire: questionnaireReference,
+                extension: [
+                    {
+                        url: 'https://koala-questionnaire-form-builder.local/StructureDefinition/sourceQuestionnaireJson',
+                        valueString: props.questionnaireJson,
+                    },
+                ],
+            };
+
+            await createQuestionnaireResponse(questionnaireResponsePayload);
+            setUploadStatus('success');
+        } catch (error) {
+            console.error('Failed to upload questionnaire', error);
+            setUploadStatus('error');
+            setUploadError(error instanceof Error ? error.message : t('Unknown error'));
+        }
+    };
 
     const mapToTreeData = (item: OrderItem[], hierarchy: string, parentLinkId?: string): Node[] => {
         return item
@@ -243,6 +286,27 @@ const AnchorMenu = (props: AnchorMenuProps): JSX.Element => {
                         ),
                     })}
                 />
+                {props.qOrder.length > 0 && (
+                    <div className="questionnaire-overview__actions">
+                        <Btn
+                            title={
+                                uploadStatus === 'loading' ? t('Uploading questionnaire...') : t('Upload questionnaire')
+                            }
+                            onClick={handleUploadQuestionnaire}
+                            disabled={uploadStatus === 'loading'}
+                        />
+                        {uploadStatus === 'success' && (
+                            <span className="questionnaire-overview__upload-status questionnaire-overview__upload-status--success">
+                                {t('Questionnaire uploaded')}
+                            </span>
+                        )}
+                        {uploadStatus === 'error' && (
+                            <span className="questionnaire-overview__upload-status questionnaire-overview__upload-status--error">
+                                {uploadError || t('Failed to upload questionnaire')}
+                            </span>
+                        )}
+                    </div>
+                )}
                 {props.qOrder.length === 0 && (
                     <p className="anchor-menu__placeholder">
                         {t(
