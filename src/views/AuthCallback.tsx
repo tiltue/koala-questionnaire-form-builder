@@ -19,7 +19,6 @@ const AuthCallback = (): JSX.Element => {
             const storedState = getStoredState();
 
             if (!authCode || !returnedState || !storedState) {
-                console.log(authCode, returnedState, storedState);
                 setError('Missing authorization information. Please try signing in again.');
                 setStatusMessage('Unable to sign in.');
                 return;
@@ -38,7 +37,7 @@ const AuthCallback = (): JSX.Element => {
                         returnedState,
                     )}&stored_state=${encodeURIComponent(storedState)}`,
                 );
-                console.log(response);
+
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || 'Failed to exchange authorization code.');

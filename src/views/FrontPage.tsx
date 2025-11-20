@@ -9,10 +9,12 @@ import { useTranslation } from 'react-i18next';
 import FormBuilder from './FormBuilder';
 import Btn from '../components/Btn/Btn';
 import './FrontPage.css';
+import { useAuth } from '../contexts/AuthContext';
 
 const FrontPage = (): JSX.Element => {
     const { t } = useTranslation();
     const { dispatch } = useContext(TreeContext);
+    const { logout } = useAuth();
     const [stateFromStorage, setStateFromStorage] = useState<TreeState>();
     const [isLoading, setIsLoading] = useState(false);
     const [isFormBuilderShown, setIsFormBuilderShown] = useState<boolean>(false);
@@ -103,6 +105,9 @@ const FrontPage = (): JSX.Element => {
                     <header>
                         <div className="form-title">
                             <h1>{t('Form builder')}</h1>
+                        </div>
+                        <div className="logout-button-wrapper">
+                            <Btn title={t('Logout')} onClick={logout} />
                         </div>
                     </header>
                     <div className="frontpage">

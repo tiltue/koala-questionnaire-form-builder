@@ -12,6 +12,7 @@ import { saveAction } from '../../store/treeStore/treeActions';
 import { validateOrphanedElements, validateTranslations, ValidationErrors } from '../../helpers/orphanValidation';
 import { ValidationErrorsModal } from '../ValidationErrorsModal/validationErrorsModal';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../contexts/AuthContext';
 
 type Props = {
     showFormFiller: () => void;
@@ -43,6 +44,7 @@ const Navbar = ({
     const [showValidationErrors, setShowValidationErrors] = useState<boolean>(false);
     const navBarRef = useRef<HTMLDivElement>(null);
     const fileExtension = 'json';
+    const { logout } = useAuth();
 
     const hideMenu = () => {
         setSelectedMenuItem(MenuItem.none);
@@ -124,6 +126,7 @@ const Navbar = ({
                             {getProfileName()}
                         </p>
                     )}
+                    <Btn title={t('Logout')} onClick={logout} />
                     <Btn title={t('Preview')} onClick={showFormFiller} />
                     <Btn title={t('Save')} onClick={() => exportToJsonAndDownload()} />
                     <div

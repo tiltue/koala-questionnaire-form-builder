@@ -124,25 +124,15 @@ export const AuthProvider = ({ children }: Props): JSX.Element => {
     }, []);
 
     const logout = useCallback(async () => {
-        setIsAuthenticating(true);
         setLoginError(null);
+        setIsAuthenticating(true);
         try {
-            const response = await fetch('/.netlify/functions/end-session');
-            if (!response.ok) {
-                throw new Error('Failed to sign out.');
-            }
-            const body = (await response.json()) as { url?: string };
+            // Call backend to clear cookies/session, but ignore returned url to stay on the app
+            await fetch('/.netlify/functions/end-session').catch(() => undefined);
+        } finally {
             sessionStorage.removeItem(AUTH_USER_STORAGE_KEY);
             clearStateValue();
             setUser(null);
-            if (body?.url) {
-                window.location.replace(body.url);
-                return;
-            }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unable to sign out.';
-            setLoginError(message);
-        } finally {
             setIsAuthenticating(false);
         }
     }, []);
