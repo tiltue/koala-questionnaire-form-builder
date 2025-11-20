@@ -6,6 +6,7 @@ import * as serviceWorker from './serviceWorker';
 import App from './App';
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { AuthProvider } from './contexts/AuthContext';
 import { UserProvider } from './contexts/UserContext';
 import './helpers/i18n';
 //import { debugContextDevtool } from 'react-context-devtool';
@@ -15,9 +16,11 @@ container?.classList.add('root');
 
 ReactDOM.render(
     <React.StrictMode>
-        <UserProvider>
-            <App />
-        </UserProvider>
+        <AuthProvider>
+            <UserProvider>
+                <App />
+            </UserProvider>
+        </AuthProvider>
     </React.StrictMode>,
     container,
 );
