@@ -1,21 +1,51 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-const { generators } = require('openid-client');
+const crypto = require('crypto');
 const clientContext = require('./util/client-context');
+
+const SCOPES = [
+    'openid',
+    'questionnaire_create',
+    'questionnaire_read',
+    'questionnaire_write',
+    'questionnaire_view',
+].join(' ');
+
+// Generate random state string (32 characters)
+function randomString(length) {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(crypto.randomBytes(1)[0] % chars.length));
+    }
+    return result;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 exports.handler = async (event, context) => {
-    const code_verifier = generators.codeVerifier();
-    const code_challenge = generators.codeChallenge(code_verifier);
+    try {
+        const client = await clientContext.createClient();
+        const state = randomString(32);
+        const redirectUri = `${'http://localhost:3000'}/code`; // TODO: Real url?
 
-    const client = await clientContext.createClient();
+        // Build authorization URL
+        const authUrl = client.authorizationUrl({
+            redirect_uri: redirectUri,
+            scope: SCOPES,
+            response_type: 'code',
+            state: state,
+            prompt: 'login',
+        });
 
-    let authUrl = client.authorizationUrl({
-        redirect_uri: `${process.env.REACT_APP_URL}/code`,
-        scope: 'openid profile helseid://scopes/identity/pid helseid://scopes/identity/security_level',
-        response_type: 'code',
-        code_challenge,
-        code_challenge_method: 'S256',
-    });
-
-    return { statusCode: 200, body: JSON.stringify({ code_verifier, auth_url: authUrl }) };
+        return { statusCode: 200, body: JSON.stringify({ state, auth_url: authUrl }) };
+    } catch (error) {
+        console.error('Error in authorization-code function:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                error: 'Failed to generate authorization URL',
+                message: error.message,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+            }),
+        };
+    }
 };
