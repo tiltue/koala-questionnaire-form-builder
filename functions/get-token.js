@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 const axios = require('axios');
 const clientContext = require('./util/client-context');
+const { resolveRedirectOrigin } = require('./util/redirect-origin');
 const qs = require('qs');
 const cookie = require('cookie');
 const CryptoJS = require('crypto-js');
@@ -47,6 +48,7 @@ exports.handler = async (event, context) => {
     const code = event.queryStringParameters.code;
     const state = event.queryStringParameters.state;
     const storedState = event.queryStringParameters.stored_state;
+    const redirectOrigin = resolveRedirectOrigin(event);
 
     if (!code) {
         return {
@@ -68,7 +70,7 @@ exports.handler = async (event, context) => {
         };
     }
 
-    const redirectUri = `${'http://localhost:3000'}/code`; // TODO: Real url?
+    const redirectUri = `${redirectOrigin}/code`;
     const tokenEndpoint = `${clientContext.ISSUER}protocol/openid-connect/token`;
 
     // Token exchange using Basic Auth

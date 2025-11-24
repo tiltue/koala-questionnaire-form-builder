@@ -18,4 +18,8 @@
 
 .logout-button-wrapper {
     padding-right: 10px;
+
+    .regular-btn.primary {
+        background: none;
+    }
 }

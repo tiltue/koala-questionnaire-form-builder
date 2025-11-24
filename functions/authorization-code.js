@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 const crypto = require('crypto');
 const clientContext = require('./util/client-context');
+const { resolveRedirectOrigin } = require('./util/redirect-origin');
 
 const SCOPES = [
     'openid',
@@ -25,7 +26,8 @@ exports.handler = async (event, context) => {
     try {
         const client = await clientContext.createClient();
         const state = randomString(32);
-        const redirectUri = `${'http://localhost:3000'}/code`; // TODO: Real url?
+        const redirectOrigin = resolveRedirectOrigin(event);
+        const redirectUri = `${redirectOrigin}/code`;
 
         // Build authorization URL
         const authUrl = client.authorizationUrl({

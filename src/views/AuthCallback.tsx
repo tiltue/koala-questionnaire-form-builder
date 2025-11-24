@@ -32,11 +32,16 @@ const AuthCallback = (): JSX.Element => {
             }
 
             try {
-                const response = await fetch(
-                    `/.netlify/functions/get-token?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(
-                        returnedState,
-                    )}&stored_state=${encodeURIComponent(storedState)}`,
-                );
+                const redirectOrigin = window.location.origin;
+                const params = new URLSearchParams({
+                    code: authCode,
+                    state: returnedState,
+                    stored_state: storedState,
+                });
+                if (redirectOrigin) {
+                    params.set('redirect_origin', redirectOrigin);
+                }
+                const response = await fetch(`/.netlify/functions/get-token?${params.toString()}`);
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));

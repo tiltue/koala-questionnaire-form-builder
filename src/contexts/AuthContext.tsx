@@ -95,7 +95,13 @@ export const AuthProvider = ({ children }: Props): JSX.Element => {
         setIsAuthenticating(true);
         setLoginError(null);
         try {
-            const response = await fetch('/.netlify/functions/authorization-code', {
+            const redirectOrigin = isBrowser ? window.location.origin : '';
+            const params = new URLSearchParams();
+            if (redirectOrigin) {
+                params.set('redirect_origin', redirectOrigin);
+            }
+            const query = params.toString();
+            const response = await fetch(`/.netlify/functions/authorization-code${query ? `?${query}` : ''}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
             });

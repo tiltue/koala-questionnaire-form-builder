@@ -50,3 +50,7 @@ header p {
 .profile-name {
     max-width: 160px;
 }
+
+header .pull-right > .regular-btn.primary {
+    background: none;
+}
