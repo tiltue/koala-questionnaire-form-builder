@@ -214,6 +214,9 @@ function getLanguageData(qMetadata: IQuestionnaireMetadata, languageCode: string
     };
 }
 
+const getQuestionnaireName = (metadata: IQuestionnaireMetadata): string | undefined =>
+    metadata.name?.trim() || metadata.title?.trim();
+
 const generateTree = (order: Array<OrderItem>, items: Items): Array<QuestionnaireItem> => {
     return order.map((x) => {
         return {
@@ -240,8 +243,12 @@ const generateTreeWithTranslations = (
 
 export const generateMainQuestionnaire = (state: TreeState): Questionnaire => {
     const usedValueSet = getUsedValueSet(state);
-    return {
+    const metadataWithName: IQuestionnaireMetadata = {
         ...state.qMetadata,
+        name: getQuestionnaireName(state.qMetadata),
+    };
+    return {
+        ...metadataWithName,
         contained: state.qContained?.filter((x) => x.id && usedValueSet?.includes(x.id) && x) as ValueSet[],
         resourceType: 'Questionnaire',
         status: state.qMetadata.status || 'draft',
@@ -255,8 +262,13 @@ const generateTranslatedQuestionnaire = (
     languages: Languages,
 ): Questionnaire => {
     const usedValueSet = getUsedValueSet(state);
+    const translatedMetadata = getTranslatedMetadata(state.qMetadata, languages[languageCode]);
+    const metadataWithName: IQuestionnaireMetadata = {
+        ...translatedMetadata,
+        name: getQuestionnaireName(state.qMetadata),
+    };
     return {
-        ...getTranslatedMetadata(state.qMetadata, languages[languageCode]),
+        ...metadataWithName,
         ...getLanguageData(state.qMetadata, languageCode),
         contained: getTranslatedContained(state.qContained, languages[languageCode]).filter(
             (x) => x.id && usedValueSet?.includes(x.id),

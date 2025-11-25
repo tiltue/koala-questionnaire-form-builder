@@ -1,6 +1,6 @@
 {
     "resourceType": "Questionnaire",
-    "language": "nb-NO",
+    "language": "en-US",
     "id": "1000",
     "name": "NHN_Skaring",
     "title": "Test skåring og utregning gammel og ny",
@@ -12,8 +12,8 @@
         "tag": [
             {
                 "system": "urn:ietf:bcp:47",
-                "code": "nb-NO",
-                "display": "Norsk bokmål"
+                "code": "en-US",
+                "display": "English"
             }
         ],
         "security": [
