@@ -2,14 +2,17 @@
 const crypto = require('crypto');
 const clientContext = require('./util/client-context');
 const { resolveRedirectOrigin } = require('./util/redirect-origin');
+const { SCOPES, KEYCLOAK_AUDIENCE } = require('./util/auth-config');
 
-const SCOPES = [
-    'openid',
-    'questionnaire_create',
-    'questionnaire_read',
-    'questionnaire_write',
-    'questionnaire_view',
-].join(' ');
+const describeState = (value) => {
+    if (!value) return 'n/a';
+    if (value.length <= 8) return value;
+    return `${value.slice(0, 4)}…${value.slice(-4)} (${value.length} chars)`;
+};
+
+const logAuthRequest = (message, payload = {}) => {
+    console.log(`[authorization-code] ${message}`, payload);
+};
 
 // Generate random state string (32 characters)
 function randomString(length) {
@@ -29,13 +32,42 @@ exports.handler = async (event, context) => {
         const redirectOrigin = resolveRedirectOrigin(event);
         const redirectUri = `${redirectOrigin}/code`;
 
-        // Build authorization URL
-        const authUrl = client.authorizationUrl({
+        logAuthRequest('Starting authorization handshake', {
+            redirectOrigin,
+            redirectUri,
+            scope: SCOPES,
+            state: describeState(state),
+        });
+
+        // Build authorization URL with optional audience/resource
+        const authParams = {
             redirect_uri: redirectUri,
             scope: SCOPES,
             response_type: 'code',
             state: state,
             prompt: 'login',
+        };
+
+        authParams.audience = KEYCLOAK_AUDIENCE;
+        authParams.resource = KEYCLOAK_AUDIENCE;
+
+        const baseAuthUrl = client.authorizationUrl(authParams);
+
+        let authUrl = baseAuthUrl;
+
+        try {
+            const url = new URL(baseAuthUrl);
+            if (!url.searchParams.has('resource')) {
+                url.searchParams.append('resource', KEYCLOAK_AUDIENCE);
+            }
+            authUrl = url.toString();
+        } catch (parseError) {
+            console.warn('[authorization-code] Failed to inspect authorization URL, using raw value', parseError);
+        }
+
+        logAuthRequest('Generated authorization URL', {
+            authUrl,
+            redirectUri,
         });
 
         return { statusCode: 200, body: JSON.stringify({ state, auth_url: authUrl }) };

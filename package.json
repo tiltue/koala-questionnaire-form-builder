@@ -43,7 +43,8 @@
         "test": "react-scripts test",
         "lint": "eslint ./src/**/*.{js,ts,tsx} --quiet --fix",
         "eject": "react-scripts eject",
-        "functions": "netlify dev"
+        "functions": "netlify dev",
+        "dev": "npx kill-port 3000 && netlify dev"
     },
     "eslintConfig": {
         "extends": [

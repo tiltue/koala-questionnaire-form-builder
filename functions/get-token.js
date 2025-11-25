@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 const axios = require('axios');
 const clientContext = require('./util/client-context');
+const { SCOPES, KEYCLOAK_AUDIENCE } = require('./util/auth-config');
 const { resolveRedirectOrigin } = require('./util/redirect-origin');
 const qs = require('qs');
 const cookie = require('cookie');
@@ -24,6 +25,17 @@ function decodeJwt(token) {
         throw new Error(`Failed to decode JWT: ${error.message}`);
     }
 }
+
+function describeToken(token) {
+    if (!token) return 'n/a';
+    const head = token.slice(0, 10);
+    const tail = token.slice(-6);
+    return `${head}…${tail} (${token.length} chars)`;
+}
+
+const logTokenExchange = (message, payload = {}) => {
+    console.log(`[get-token] ${message}`, payload);
+};
 
 function createCookie(token) {
     const hour = 3600000;
@@ -49,6 +61,10 @@ exports.handler = async (event, context) => {
     const state = event.queryStringParameters.state;
     const storedState = event.queryStringParameters.stored_state;
     const redirectOrigin = resolveRedirectOrigin(event);
+    logTokenExchange('Received token exchange request', {
+        hasCode: Boolean(code),
+        redirectOrigin,
+    });
 
     if (!code) {
         return {
@@ -62,6 +78,10 @@ exports.handler = async (event, context) => {
 
     // Verify state matches (CSRF protection)
     if (!state || !storedState || state !== storedState) {
+        console.warn('[get-token] State mismatch detected', {
+            state,
+            storedState,
+        });
         return {
             statusCode: 400,
             body: JSON.stringify({
@@ -85,9 +105,19 @@ exports.handler = async (event, context) => {
         redirect_uri: redirectUri,
     };
 
+    body.scope = SCOPES;
+
+    body.audience = KEYCLOAK_AUDIENCE;
+    body.resource = KEYCLOAK_AUDIENCE;
+
     try {
         const tokenResponse = await axios.post(tokenEndpoint, qs.stringify(body), { headers });
         const { access_token, id_token, refresh_token } = tokenResponse.data;
+        logTokenExchange('Keycloak responded with tokens', {
+            accessToken: describeToken(access_token),
+            hasRefreshToken: Boolean(refresh_token),
+            hasIdToken: Boolean(id_token),
+        });
 
         // Decode JWT tokens to get user info (matching Flutter implementation)
         let userInfo = {};
