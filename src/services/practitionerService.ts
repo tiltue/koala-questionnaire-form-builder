@@ -5,7 +5,7 @@ export interface PractitionerServiceConfig {
     accessToken?: string;
 }
 
-type HttpMethod = 'GET' | 'POST';
+type HttpMethod = 'GET' | 'POST' | 'DELETE';
 
 type PractitionerPayload = Record<string, unknown>;
 
@@ -64,8 +64,21 @@ async function executeRequest<T>({ method, path, config, body }: RequestOptions)
         );
     }
 
+    // Handle DELETE requests that may return 204 No Content or empty responses
+    if (method === 'DELETE' && (response.status === 204 || response.status === 200)) {
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return undefined as T;
+        }
+    }
+
     try {
-        return (await response.json()) as T;
+        const text = await response.text();
+        // Handle empty responses (common for DELETE with 204 No Content)
+        if (!text || text.trim() === '') {
+            return undefined as T;
+        }
+        return JSON.parse(text) as T;
     } catch {
         return undefined as T;
     }
@@ -128,5 +141,40 @@ export async function assignQuestionnaireToPatient<T = unknown>(
         path: '/Participation',
         config,
         body: payload,
+    });
+}
+
+export interface TaskListParams {
+    offset?: number;
+}
+
+export async function listPractitionerTasks<T = unknown>(
+    params?: TaskListParams,
+    config?: PractitionerServiceConfig,
+): Promise<T> {
+    const searchParams = new URLSearchParams();
+    if (typeof params?.offset === 'number') {
+        searchParams.set('offset', params.offset.toString());
+    }
+
+    const query = searchParams.toString();
+    const path = `/Practitioner/Me/Task${query ? `?${query}` : ''}`;
+
+    return executeRequest<T>({
+        method: 'GET',
+        path,
+        config,
+    });
+}
+
+export async function deleteTask<T = unknown>(id: string, config?: PractitionerServiceConfig): Promise<T> {
+    if (!id) {
+        throw new Error('Task id is required');
+    }
+
+    return executeRequest<T>({
+        method: 'DELETE',
+        path: `/Task/${id}`,
+        config,
     });
 }

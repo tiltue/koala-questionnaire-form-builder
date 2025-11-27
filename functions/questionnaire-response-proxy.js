@@ -4,11 +4,11 @@ const cookie = require('cookie');
 const CryptoJS = require('crypto-js');
 
 const TARGET_BASE_URL = process.env.QUESTIONNAIRE_API_URL;
-const ALLOWED_METHODS = ['GET', 'POST'];
+const ALLOWED_METHODS = ['GET', 'POST', 'DELETE'];
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Koala-Access-Token',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
 };
 const COOKIE_NAME = 'auth_cookie';
 const COOKIE_SECRET = process.env.CINCINNO || 'default-secret-key';
@@ -101,7 +101,7 @@ exports.handler = async (event) => {
             method,
             url: targetUrl,
             headers,
-            data: method === 'GET' ? undefined : bodyString,
+            data: method === 'GET' || method === 'DELETE' ? undefined : bodyString,
             timeout: 30000,
             validateStatus: () => true,
         });

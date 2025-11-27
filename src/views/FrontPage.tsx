@@ -14,6 +14,8 @@ import {
     assignQuestionnaireToPatient,
     listPractitionerQuestionnaires,
     getPractitionerQuestionnaireById,
+    listPractitionerTasks,
+    deleteTask,
     ParticipationPayload,
 } from '../services/practitionerService';
 import { getTargetUsers, XAuthApiException } from '../services/xAuthService';
@@ -43,6 +45,39 @@ type QuestionnaireSummary = {
     name?: string;
 };
 
+type TaskResource = {
+    id?: string;
+    resourceType?: string;
+    status?: string;
+    for?: {
+        reference?: string;
+        display?: string;
+    };
+    focus?: {
+        reference?: string;
+        display?: string;
+    };
+    meta?: {
+        lastUpdated?: string;
+    };
+};
+
+type TaskBundle = {
+    entry?: Array<{
+        resource?: TaskResource;
+    }>;
+};
+
+type TaskSummary = {
+    id: string;
+    patientId?: string;
+    patientName?: string;
+    questionnaireId?: string;
+    questionnaireName?: string;
+    status?: string;
+    updatedAt?: string;
+};
+
 const toQuestionnaireSummaries = (
     bundle: PractitionerQuestionnaireBundle | undefined,
     fallbackTitle: string,
@@ -63,6 +98,34 @@ const toQuestionnaireSummaries = (
                 updatedAt: resource.meta?.lastUpdated,
                 title: resource.title,
                 name: resource.name,
+            };
+        });
+};
+
+const toTaskSummaries = (bundle: TaskBundle | undefined): TaskSummary[] => {
+    if (!bundle?.entry?.length) {
+        return [];
+    }
+
+    return bundle.entry
+        .map((entry) => entry.resource)
+        .filter((resource): resource is TaskResource => Boolean(resource?.id))
+        .map((resource) => {
+            const patientRef = resource.for?.reference || '';
+            const questionnaireRef = resource.focus?.reference || '';
+            const patientId = patientRef.includes('/') ? patientRef.split('/').pop() : patientRef;
+            const questionnaireId = questionnaireRef.includes('/')
+                ? questionnaireRef.split('/').pop()
+                : questionnaireRef;
+
+            return {
+                id: resource.id as string,
+                patientId,
+                patientName: resource.for?.display || patientId || '',
+                questionnaireId,
+                questionnaireName: resource.focus?.display || questionnaireId || '',
+                status: resource.status,
+                updatedAt: resource.meta?.lastUpdated,
             };
         });
 };
@@ -90,6 +153,14 @@ const FrontPage = (): JSX.Element => {
     const [isLoadingPatients, setIsLoadingPatients] = useState(false);
     const [patientsError, setPatientsError] = useState<string | null>(null);
     const [patientSearchTerm, setPatientSearchTerm] = useState('');
+    const [viewMode, setViewMode] = useState<'questionnaires' | 'tasks'>('questionnaires');
+    const [tasks, setTasks] = useState<TaskSummary[]>([]);
+    const [taskListError, setTaskListError] = useState<string | null>(null);
+    const [isTaskListLoading, setIsTaskListLoading] = useState(false);
+    const [taskSearchTerm, setTaskSearchTerm] = useState('');
+    const [taskToDelete, setTaskToDelete] = useState<TaskSummary | null>(null);
+    const [isDeletingTask, setIsDeletingTask] = useState(false);
+    const [deleteTaskError, setDeleteTaskError] = useState<string | null>(null);
     const accessToken = user?.access_token as string | undefined;
     const therapistId = user?.sub as string | undefined;
 
@@ -132,6 +203,43 @@ const FrontPage = (): JSX.Element => {
     useEffect(() => {
         fetchQuestionnaires();
     }, [fetchQuestionnaires]);
+
+    const fetchTasks = useCallback(async () => {
+        if (!accessToken) {
+            setTasks([]);
+            setTaskListError(null);
+            setIsTaskListLoading(false);
+            return;
+        }
+
+        setTaskListError(null);
+        setIsTaskListLoading(true);
+
+        try {
+            const response = await listPractitionerTasks<TaskBundle>(undefined, {
+                accessToken,
+            });
+            const mapped = toTaskSummaries(response);
+            const sorted = mapped.sort((a, b) => {
+                if (!a.updatedAt && !b.updatedAt) return 0;
+                if (!a.updatedAt) return 1;
+                if (!b.updatedAt) return -1;
+                return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+            });
+            setTasks(sorted);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t('Unknown error');
+            setTaskListError(message);
+        } finally {
+            setIsTaskListLoading(false);
+        }
+    }, [accessToken, t]);
+
+    useEffect(() => {
+        if (viewMode === 'tasks') {
+            fetchTasks();
+        }
+    }, [viewMode, fetchTasks]);
 
     const getStoredQuestionnaire = async () => {
         const indexedDbState = await getStateFromDb();
@@ -331,6 +439,46 @@ const FrontPage = (): JSX.Element => {
         return patientId.toLowerCase().includes(search);
     });
 
+    const filteredTasks = tasks.filter((task) => {
+        if (!taskSearchTerm.trim()) {
+            return true;
+        }
+        const search = taskSearchTerm.toLowerCase();
+        return (
+            task.patientName?.toLowerCase().includes(search) ||
+            task.patientId?.toLowerCase().includes(search) ||
+            task.questionnaireName?.toLowerCase().includes(search) ||
+            task.questionnaireId?.toLowerCase().includes(search)
+        );
+    });
+
+    const handleDeleteTask = async (): Promise<void> => {
+        if (!taskToDelete) return;
+        if (!accessToken) {
+            setDeleteTaskError(t('You must be logged in to delete tasks.'));
+            return;
+        }
+
+        setDeleteTaskError(null);
+        setIsDeletingTask(true);
+
+        try {
+            await deleteTask(taskToDelete.id, { accessToken });
+            setTaskToDelete(null);
+            await fetchTasks();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t('Unknown error');
+            setDeleteTaskError(message);
+        } finally {
+            setIsDeletingTask(false);
+        }
+    };
+
+    const closeDeleteTaskModal = (): void => {
+        setTaskToDelete(null);
+        setDeleteTaskError(null);
+    };
+
     return (
         <>
             {suggestRestore && (
@@ -416,68 +564,161 @@ const FrontPage = (): JSX.Element => {
                 />
                 <div className="frontpage__questionnaires">
                     <div className="frontpage__section-header">
-                        <h3>{t('Available questionnaires')}</h3>
-                    </div>
-                    {!accessToken ? (
-                        <div className="frontpage__info-message">{t('Log in to load questionnaires.')}</div>
-                    ) : isQuestionnaireListLoading ? (
-                        <div className="frontpage__loading">
-                            <SpinnerBox />
-                            <p>{t('Loading questionnaires...')}</p>
+                        <h3>{viewMode === 'questionnaires' ? t('Available questionnaires') : t('Assigned Tasks')}</h3>
+                        <div className="frontpage__view-toggle">
+                            <button
+                                type="button"
+                                className={`frontpage__toggle-button ${viewMode === 'questionnaires' ? 'active' : ''}`}
+                                onClick={() => setViewMode('questionnaires')}
+                            >
+                                {t('Available Questionnaires')}
+                            </button>
+                            <button
+                                type="button"
+                                className={`frontpage__toggle-button ${viewMode === 'tasks' ? 'active' : ''}`}
+                                onClick={() => setViewMode('tasks')}
+                            >
+                                {t('Assigned Tasks')}
+                            </button>
                         </div>
+                    </div>
+                    {viewMode === 'questionnaires' ? (
+                        <>
+                            {!accessToken ? (
+                                <div className="frontpage__info-message">{t('Log in to load questionnaires.')}</div>
+                            ) : isQuestionnaireListLoading ? (
+                                <div className="frontpage__loading">
+                                    <SpinnerBox />
+                                    <p>{t('Loading questionnaires...')}</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {questionnaires.length > 0 && (
+                                        <input
+                                            type="text"
+                                            className="frontpage__search-input"
+                                            placeholder={t('Search questionnaires...')}
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                    )}
+                                    {assignmentFeedback && (
+                                        <div className="frontpage__info-message">{assignmentFeedback}</div>
+                                    )}
+                                    {questionnaireListError && (
+                                        <div className="frontpage__error">
+                                            {t('Failed to load questionnaires')}: {questionnaireListError}
+                                        </div>
+                                    )}
+                                    {filteredQuestionnaires.length > 0 ? (
+                                        <ul className="frontpage__list">
+                                            {filteredQuestionnaires.map((item) => (
+                                                <li key={item.id}>
+                                                    <button
+                                                        type="button"
+                                                        className="frontpage__list-button"
+                                                        onClick={() => startAssign(item)}
+                                                    >
+                                                        <span className="frontpage__list-title">
+                                                            {item.displayName}
+                                                        </span>
+                                                        <span className="frontpage__list-meta">
+                                                            {t('Questionnaire ID')}: {item.id}
+                                                        </span>
+                                                        {item.title && item.title !== item.displayName && (
+                                                            <span className="frontpage__list-meta">
+                                                                {t('Title')}: {item.title}
+                                                            </span>
+                                                        )}
+                                                        {item.status && (
+                                                            <span className="frontpage__list-meta">
+                                                                {t('Status')}: {item.status}
+                                                            </span>
+                                                        )}
+                                                        {item.updatedAt && (
+                                                            <span className="frontpage__list-meta">
+                                                                {t('Updated at')}:{' '}
+                                                                {new Date(item.updatedAt).toLocaleString()}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : questionnaires.length > 0 ? (
+                                        <div className="frontpage__empty">{t('No questionnaires found')}</div>
+                                    ) : (
+                                        <div className="frontpage__empty">{t('No questionnaires available yet')}</div>
+                                    )}
+                                </>
+                            )}
+                        </>
                     ) : (
                         <>
-                            {questionnaires.length > 0 && (
-                                <input
-                                    type="text"
-                                    className="frontpage__search-input"
-                                    placeholder={t('Search questionnaires...')}
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            )}
-                            {assignmentFeedback && <div className="frontpage__info-message">{assignmentFeedback}</div>}
-                            {questionnaireListError && (
-                                <div className="frontpage__error">
-                                    {t('Failed to load questionnaires')}: {questionnaireListError}
+                            {!accessToken ? (
+                                <div className="frontpage__info-message">{t('Log in to load tasks.')}</div>
+                            ) : isTaskListLoading ? (
+                                <div className="frontpage__loading">
+                                    <SpinnerBox />
+                                    <p>{t('Loading tasks...')}</p>
                                 </div>
-                            )}
-                            {filteredQuestionnaires.length > 0 ? (
-                                <ul className="frontpage__list">
-                                    {filteredQuestionnaires.map((item) => (
-                                        <li key={item.id}>
-                                            <button
-                                                type="button"
-                                                className="frontpage__list-button"
-                                                onClick={() => startAssign(item)}
-                                            >
-                                                <span className="frontpage__list-title">{item.displayName}</span>
-                                                <span className="frontpage__list-meta">
-                                                    {t('Questionnaire ID')}: {item.id}
-                                                </span>
-                                                {item.title && item.title !== item.displayName && (
-                                                    <span className="frontpage__list-meta">
-                                                        {t('Title')}: {item.title}
-                                                    </span>
-                                                )}
-                                                {item.status && (
-                                                    <span className="frontpage__list-meta">
-                                                        {t('Status')}: {item.status}
-                                                    </span>
-                                                )}
-                                                {item.updatedAt && (
-                                                    <span className="frontpage__list-meta">
-                                                        {t('Updated at')}: {new Date(item.updatedAt).toLocaleString()}
-                                                    </span>
-                                                )}
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : questionnaires.length > 0 ? (
-                                <div className="frontpage__empty">{t('No questionnaires found')}</div>
                             ) : (
-                                <div className="frontpage__empty">{t('No questionnaires available yet')}</div>
+                                <>
+                                    {tasks.length > 0 && (
+                                        <input
+                                            type="text"
+                                            className="frontpage__search-input"
+                                            placeholder={t('Search tasks...')}
+                                            value={taskSearchTerm}
+                                            onChange={(e) => setTaskSearchTerm(e.target.value)}
+                                        />
+                                    )}
+                                    {taskListError && (
+                                        <div className="frontpage__error">
+                                            {t('Failed to load tasks')}: {taskListError}
+                                        </div>
+                                    )}
+                                    {filteredTasks.length > 0 ? (
+                                        <ul className="frontpage__list">
+                                            {filteredTasks.map((task) => (
+                                                <li key={task.id} className="frontpage__task-item">
+                                                    <div className="frontpage__task-content">
+                                                        <span className="frontpage__list-title">
+                                                            {t('Patient')}:{' '}
+                                                            {task.patientName || task.patientId || t('Unknown')}
+                                                        </span>
+                                                        <span className="frontpage__list-meta">
+                                                            {t('Questionnaire')}:{' '}
+                                                            {task.questionnaireName ||
+                                                                task.questionnaireId ||
+                                                                t('Unknown')}
+                                                        </span>
+                                                        {task.status && (
+                                                            <span className="frontpage__list-meta">
+                                                                {t('Status')}: {task.status}
+                                                            </span>
+                                                        )}
+                                                        {task.updatedAt && (
+                                                            <span className="frontpage__list-meta">
+                                                                {t('Updated at')}:{' '}
+                                                                {new Date(task.updatedAt).toLocaleString()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <Btn
+                                                        title={t('Delete')}
+                                                        variant="secondary"
+                                                        onClick={() => setTaskToDelete(task)}
+                                                    />
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : tasks.length > 0 ? (
+                                        <div className="frontpage__empty">{t('No tasks found')}</div>
+                                    ) : (
+                                        <div className="frontpage__empty">{t('No tasks available yet')}</div>
+                                    )}
+                                </>
                             )}
                         </>
                     )}
@@ -544,6 +785,35 @@ const FrontPage = (): JSX.Element => {
                                 disabled={isDownloading}
                             />
                             <Btn title={t('Cancel')} variant="secondary" onClick={closeAssignModal} />
+                        </div>
+                    </div>
+                </Modal>
+            )}
+            {taskToDelete && (
+                <Modal title={t('Delete Task')} close={closeDeleteTaskModal}>
+                    <div className="frontpage__delete-task-form">
+                        <p>{t('Are you sure you want to delete this task?')}</p>
+                        <div className="frontpage__assign-details">
+                            <div>
+                                <strong>{t('Patient')}</strong>
+                            </div>
+                            <div>{taskToDelete.patientName || taskToDelete.patientId || t('Unknown')}</div>
+                        </div>
+                        <div className="frontpage__assign-details">
+                            <div>
+                                <strong>{t('Questionnaire')}</strong>
+                            </div>
+                            <div>{taskToDelete.questionnaireName || taskToDelete.questionnaireId || t('Unknown')}</div>
+                        </div>
+                        {deleteTaskError && <div className="frontpage__error">{deleteTaskError}</div>}
+                        <div className="frontpage__assign-actions">
+                            <Btn
+                                title={isDeletingTask ? t('Deleting...') : t('Delete')}
+                                variant="primary"
+                                onClick={handleDeleteTask}
+                                disabled={isDeletingTask}
+                            />
+                            <Btn title={t('Cancel')} variant="secondary" onClick={closeDeleteTaskModal} />
                         </div>
                     </div>
                 </Modal>
