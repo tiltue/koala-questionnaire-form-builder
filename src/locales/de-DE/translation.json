@@ -384,6 +384,8 @@
     "Questionnaire ID": "Fragebogen-ID",
     "Updated at": "Aktualisiert am",
     "No questionnaires available yet": "Noch keine Fragebögen verfügbar",
+    "No questionnaires found": "Keine Fragebögen gefunden",
+    "Search questionnaires...": "Fragebögen suchen...",
     "Assign questionnaire": "Fragebogen zuweisen",
     "Assign this questionnaire to a patient by providing their UID.": "Weisen Sie diesen Fragebogen einem Patienten zu, indem Sie dessen UID angeben.",
     "Questionnaire assigned to patient.": "Fragebogen dem Patienten zugewiesen.",

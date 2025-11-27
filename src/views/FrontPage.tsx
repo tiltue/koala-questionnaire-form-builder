@@ -84,6 +84,7 @@ const FrontPage = (): JSX.Element => {
     const [assignmentFeedback, setAssignmentFeedback] = useState<string | null>(null);
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadError, setDownloadError] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
     const accessToken = user?.access_token as string | undefined;
     const therapistId = user?.sub as string | undefined;
 
@@ -108,7 +109,13 @@ const FrontPage = (): JSX.Element => {
                 accessToken,
             });
             const mapped = toQuestionnaireSummaries(response, t('Untitled questionnaire'));
-            setQuestionnaires(mapped);
+            const sorted = mapped.sort((a, b) => {
+                if (!a.updatedAt && !b.updatedAt) return 0;
+                if (!a.updatedAt) return 1;
+                if (!b.updatedAt) return -1;
+                return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+            });
+            setQuestionnaires(sorted);
         } catch (error) {
             const message = error instanceof Error ? error.message : t('Unknown error');
             setQuestionnaireListError(message);
@@ -264,6 +271,19 @@ const FrontPage = (): JSX.Element => {
         return i18n.language === 'en-US' ? '🇬🇧' : '🇩🇪';
     };
 
+    const filteredQuestionnaires = questionnaires.filter((item) => {
+        if (!searchTerm.trim()) {
+            return true;
+        }
+        const search = searchTerm.toLowerCase();
+        return (
+            item.displayName?.toLowerCase().includes(search) ||
+            item.name?.toLowerCase().includes(search) ||
+            item.title?.toLowerCase().includes(search) ||
+            item.id?.toLowerCase().includes(search)
+        );
+    });
+
     return (
         <>
             {suggestRestore && (
@@ -351,12 +371,6 @@ const FrontPage = (): JSX.Element => {
                     <div className="frontpage__section-header">
                         <h3>{t('Available questionnaires')}</h3>
                     </div>
-                    {assignmentFeedback && <div className="frontpage__info-message">{assignmentFeedback}</div>}
-                    {questionnaireListError && (
-                        <div className="frontpage__error">
-                            {t('Failed to load questionnaires')}: {questionnaireListError}
-                        </div>
-                    )}
                     {!accessToken ? (
                         <div className="frontpage__info-message">{t('Log in to load questionnaires.')}</div>
                     ) : isQuestionnaireListLoading ? (
@@ -364,40 +378,61 @@ const FrontPage = (): JSX.Element => {
                             <SpinnerBox />
                             <p>{t('Loading questionnaires...')}</p>
                         </div>
-                    ) : questionnaires.length > 0 ? (
-                        <ul className="frontpage__list">
-                            {questionnaires.map((item) => (
-                                <li key={item.id}>
-                                    <button
-                                        type="button"
-                                        className="frontpage__list-button"
-                                        onClick={() => startAssign(item)}
-                                    >
-                                        <span className="frontpage__list-title">{item.displayName}</span>
-                                        <span className="frontpage__list-meta">
-                                            {t('Questionnaire ID')}: {item.id}
-                                        </span>
-                                        {item.title && item.title !== item.displayName && (
-                                            <span className="frontpage__list-meta">
-                                                {t('Title')}: {item.title}
-                                            </span>
-                                        )}
-                                        {item.status && (
-                                            <span className="frontpage__list-meta">
-                                                {t('Status')}: {item.status}
-                                            </span>
-                                        )}
-                                        {item.updatedAt && (
-                                            <span className="frontpage__list-meta">
-                                                {t('Updated at')}: {new Date(item.updatedAt).toLocaleString()}
-                                            </span>
-                                        )}
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
                     ) : (
-                        <div className="frontpage__empty">{t('No questionnaires available yet')}</div>
+                        <>
+                            {questionnaires.length > 0 && (
+                                <input
+                                    type="text"
+                                    className="frontpage__search-input"
+                                    placeholder={t('Search questionnaires...')}
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            )}
+                            {assignmentFeedback && <div className="frontpage__info-message">{assignmentFeedback}</div>}
+                            {questionnaireListError && (
+                                <div className="frontpage__error">
+                                    {t('Failed to load questionnaires')}: {questionnaireListError}
+                                </div>
+                            )}
+                            {filteredQuestionnaires.length > 0 ? (
+                                <ul className="frontpage__list">
+                                    {filteredQuestionnaires.map((item) => (
+                                        <li key={item.id}>
+                                            <button
+                                                type="button"
+                                                className="frontpage__list-button"
+                                                onClick={() => startAssign(item)}
+                                            >
+                                                <span className="frontpage__list-title">{item.displayName}</span>
+                                                <span className="frontpage__list-meta">
+                                                    {t('Questionnaire ID')}: {item.id}
+                                                </span>
+                                                {item.title && item.title !== item.displayName && (
+                                                    <span className="frontpage__list-meta">
+                                                        {t('Title')}: {item.title}
+                                                    </span>
+                                                )}
+                                                {item.status && (
+                                                    <span className="frontpage__list-meta">
+                                                        {t('Status')}: {item.status}
+                                                    </span>
+                                                )}
+                                                {item.updatedAt && (
+                                                    <span className="frontpage__list-meta">
+                                                        {t('Updated at')}: {new Date(item.updatedAt).toLocaleString()}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : questionnaires.length > 0 ? (
+                                <div className="frontpage__empty">{t('No questionnaires found')}</div>
+                            ) : (
+                                <div className="frontpage__empty">{t('No questionnaires available yet')}</div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

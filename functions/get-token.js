@@ -57,10 +57,6 @@ exports.handler = async (event, context) => {
     const state = event.queryStringParameters.state;
     const storedState = event.queryStringParameters.stored_state;
     const redirectOrigin = resolveRedirectOrigin(event);
-    logTokenExchange('Received token exchange request', {
-        hasCode: Boolean(code),
-        redirectOrigin,
-    });
 
     if (!code) {
         return {
@@ -109,11 +105,6 @@ exports.handler = async (event, context) => {
     try {
         const tokenResponse = await axios.post(tokenEndpoint, qs.stringify(body), { headers });
         const { access_token, id_token, refresh_token } = tokenResponse.data;
-        logTokenExchange('Keycloak responded with tokens', {
-            accessToken: describeToken(access_token),
-            hasRefreshToken: Boolean(refresh_token),
-            hasIdToken: Boolean(id_token),
-        });
 
         // Decode JWT tokens to get user info (matching Flutter implementation)
         let userInfo = {};

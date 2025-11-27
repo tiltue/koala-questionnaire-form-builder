@@ -74,7 +74,24 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.frontpage__search-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #d7d7d7;
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    font-size: 1rem;
     margin-bottom: 1.5rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.frontpage__search-input:focus {
+    border-color: #004c97;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 76, 151, 0.15);
 }
 
 .frontpage__info-message {

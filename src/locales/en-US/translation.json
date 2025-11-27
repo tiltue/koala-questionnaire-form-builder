@@ -384,6 +384,8 @@
     "Questionnaire ID": "Questionnaire ID",
     "Updated at": "Updated at",
     "No questionnaires available yet": "No questionnaires available yet",
+    "No questionnaires found": "No questionnaires found",
+    "Search questionnaires...": "Search questionnaires...",
     "Assign questionnaire": "Assign questionnaire",
     "Assign this questionnaire to a patient by providing their UID.": "Assign this questionnaire to a patient by providing their UID.",
     "Questionnaire assigned to patient.": "Questionnaire assigned to patient.",
