@@ -1,8 +1,45 @@
-header p {
+.builder-navbar {
+    align-items: center;
+    gap: 10px;
+}
+
+.builder-navbar p {
     margin: 0;
     padding-right: 5px;
     color: #d2d0d0;
     line-height: 32px;
+}
+
+.navbar__left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-left: 10px;
+    flex: 1;
+}
+
+.navbar__home-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.navbar__home-btn img {
+    filter: invert(100%);
+    width: 26px;
+    height: 26px;
+}
+
+.navbar__home-btn:hover,
+.navbar__home-btn:focus-visible {
+    background-color: #ffffff36;
+    outline: none;
 }
 
 .more-menu {
@@ -43,10 +80,46 @@ header p {
 .form-title {
     width: 100%;
 }
-.form-title h1 {
+
+.form-title--editable {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+}
+
+.form-title__input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+    color: var(--color-base-1);
     font-size: 24px;
+    padding: 4px 0;
+}
+
+.form-title__input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.form-title__input:focus {
+    outline: none;
+    border-bottom-color: #ffffff;
+}
+
+.form-title__input.has-error {
+    border-bottom-color: #ffb3b3;
+}
+
+.form-title__error {
+    color: #ffe0e0;
+    font-size: 0.8rem;
+    line-height: 1.2;
 }
 
 .profile-name {
     max-width: 160px;
+}
+
+header .pull-right > .regular-btn.primary {
+    background: none;
 }

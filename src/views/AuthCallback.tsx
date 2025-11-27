@@ -21,6 +21,11 @@ const AuthCallback = (): JSX.Element => {
             if (!authCode || !returnedState || !storedState) {
                 setError('Missing authorization information. Please try signing in again.');
                 setStatusMessage('Unable to sign in.');
+                console.error('[AuthCallback] Missing required OAuth values', {
+                    hasAuthCode: Boolean(authCode),
+                    returnedState,
+                    storedStateExists: Boolean(storedState),
+                });
                 return;
             }
 
@@ -28,18 +33,26 @@ const AuthCallback = (): JSX.Element => {
             if (returnedState !== storedState) {
                 setError('Security verification failed. Please try signing in again.');
                 setStatusMessage('Unable to sign in.');
+                console.error('[AuthCallback] State mismatch detected', { returnedState, storedState });
                 return;
             }
 
             try {
-                const response = await fetch(
-                    `/.netlify/functions/get-token?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(
-                        returnedState,
-                    )}&stored_state=${encodeURIComponent(storedState)}`,
-                );
+                const redirectOrigin = window.location.origin;
+                const params = new URLSearchParams({
+                    code: authCode,
+                    state: returnedState,
+                    stored_state: storedState,
+                });
+                if (redirectOrigin) {
+                    params.set('redirect_origin', redirectOrigin);
+                }
+                const tokenUrl = `/.netlify/functions/get-token?${params.toString()}`;
+                const response = await fetch(tokenUrl);
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
+                    console.error('[AuthCallback] Token exchange failed', errorData);
                     throw new Error(errorData.error || 'Failed to exchange authorization code.');
                 }
                 const profile = await response.json();
@@ -49,6 +62,7 @@ const AuthCallback = (): JSX.Element => {
                 const message = err instanceof Error ? err.message : 'Unable to finish sign in.';
                 setError(message);
                 setStatusMessage('Unable to sign in.');
+                console.error('[AuthCallback] Unexpected error while completing login', err);
             }
         };
 

@@ -30,7 +30,7 @@ const Languages = (props: LanguagesProps): JSX.Element => {
 
     return (
         <div className="language-bar">
-            <div className="main-language">{`${t('Hovedspråk')}: ${language}`}</div>
+            <div className="main-language">{`${t('Main language')}: ${language}`}</div>
             {getTranslations()}
         </div>
     );

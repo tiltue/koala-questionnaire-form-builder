@@ -10,18 +10,11 @@ import { isValidId } from './MetadataHelper';
 import { IExtentionType } from '../types/IQuestionnareItemType';
 import { Extension } from '../types/fhir';
 
-export const INITIAL_LANGUAGE: Language = { code: 'nb-NO', display: 'Bokmål', localDisplay: 'Bokmål' };
+export const INITIAL_LANGUAGE: Language = { code: 'en-US', display: 'English', localDisplay: 'English' };
 
 export const supportedLanguages: Language[] = [
     INITIAL_LANGUAGE,
-    { code: 'nn-NO', display: 'Nynorsk', localDisplay: 'Nynorsk' },
-    { code: 'se-NO', display: 'Samisk', localDisplay: 'Davvisámegillii' },
-    { code: 'en-GB', display: 'Engelsk', localDisplay: 'English' },
-    { code: 'pl-PL', display: 'Polsk', localDisplay: 'Polskie' },
-    { code: 'ro-RO', display: 'Rumensk', localDisplay: 'Română' },
-    { code: 'lt-LT', display: 'Litauisk', localDisplay: 'Lietuvis' },
-    { code: 'ru-RU', display: 'Russisk', localDisplay: 'русский' },
-    { code: 'fr-FR', display: 'Fransk', localDisplay: 'Français' },
+    { code: 'de-DE', display: 'German', localDisplay: 'Deutsch' },
 ];
 
 export const getLanguageFromCode = (languageCode: string): Language | undefined => {
@@ -65,7 +58,7 @@ export const isUniqueAcrossLanguages = (
 export const translatableMetadata: MetadataProperty[] = [
     {
         propertyName: TranslatableMetadataProperty.title,
-        label: 'Tittel',
+        label: 'Title',
         markdown: false,
         validate: undefined,
     },

@@ -1,8 +1,9 @@
-import React, { useCallback, useContext, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { TreeContext } from '../store/treeStore/treeStore';
 import { ValidationErrors } from '../helpers/orphanValidation';
+import { generateQuestionnaire } from '../helpers/generateQuestionnaire';
 
 import AnchorMenu from '../components/AnchorMenu/AnchorMenu';
 import FormDetailsDrawer from '../components/Drawer/FormDetailsDrawer/FormDetailsDrawer';
@@ -22,6 +23,19 @@ const FormBuilder = (): JSX.Element => {
     const [validationErrors, setValidationErrors] = useState<Array<ValidationErrors>>([]);
     const [translationErrors, setTranslationErrors] = useState<Array<ValidationErrors>>([]);
     const [translateLang, setTranslateLang] = useState('');
+
+    const questionnaireJson = useMemo(() => {
+        if (!state.qOrder || state.qOrder.length === 0) {
+            return undefined;
+        }
+
+        try {
+            return generateQuestionnaire(state);
+        } catch (error) {
+            console.error('Failed to generate questionnaire JSON', error);
+            return undefined;
+        }
+    }, [state]);
 
     const toggleFormDetails = useCallback(() => {
         setShowFormDetails(!showFormDetails);
@@ -44,6 +58,7 @@ const FormBuilder = (): JSX.Element => {
                     qItems={state.qItems}
                     qCurrentItem={state.qCurrentItem}
                     validationErrors={validationErrors}
+                    questionnaireJson={questionnaireJson}
                 />
                 {showPreview && (
                     <FormFillerPreview

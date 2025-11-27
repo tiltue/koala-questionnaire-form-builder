@@ -18,13 +18,17 @@ import '@nosferatu500/react-sortable-tree/style.css';
 import { isIgnorableItem } from '../../helpers/itemControl';
 import { generateItemButtons } from './ItemButtons/ItemButtons';
 import { canTypeHaveChildren, getInitialItemConfig } from '../../helpers/questionTypeFeatures';
+import Btn from '../Btn/Btn';
+import { createQuestionnaire, QuestionnaireServiceConfig } from '../../services/questionnaireService';
+import { useAuth } from '../../contexts/AuthContext';
 
-interface AnchorMenuProps {
+export interface AnchorMenuProps {
     qOrder: OrderItem[];
     qItems: Items;
     qCurrentItem: MarkedItem | undefined;
     validationErrors: ValidationErrors[];
     dispatch: React.Dispatch<ActionType>;
+    questionnaireJson?: string;
 }
 
 interface Node {
@@ -84,7 +88,40 @@ const YourExternalNodeComponent = DragSource(
 
 const AnchorMenu = (props: AnchorMenuProps): JSX.Element => {
     const { t } = useTranslation();
+    const { user } = useAuth();
     const [collapsedNodes, setCollapsedNodes] = React.useState<string[]>([]);
+    const [uploadStatus, setUploadStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [uploadError, setUploadError] = React.useState<string | null>(null);
+
+    const questionnaireApiConfig = React.useMemo<QuestionnaireServiceConfig>(() => {
+        return {
+            baseUrl: process.env.QUESTIONNAIRE_API_URL || undefined,
+            accessToken: typeof user?.access_token === 'string' ? user.access_token : undefined,
+        };
+    }, [user]);
+
+    const handleUploadQuestionnaire = async () => {
+        if (!props.questionnaireJson) {
+            console.warn('[AnchorMenu] Tried to upload questionnaire without JSON data');
+            return;
+        }
+
+        setUploadStatus('loading');
+        setUploadError(null);
+        console.groupCollapsed('[AnchorMenu] Upload questionnaire triggered');
+        console.groupEnd();
+
+        try {
+            const parsedQuestionnaire = JSON.parse(props.questionnaireJson);
+
+            await createQuestionnaire(parsedQuestionnaire, questionnaireApiConfig);
+            setUploadStatus('success');
+        } catch (error) {
+            console.error('Failed to upload questionnaire', error);
+            setUploadStatus('error');
+            setUploadError(error instanceof Error ? error.message : t('Unknown error'));
+        }
+    };
 
     const mapToTreeData = (item: OrderItem[], hierarchy: string, parentLinkId?: string): Node[] => {
         return item
@@ -243,6 +280,27 @@ const AnchorMenu = (props: AnchorMenuProps): JSX.Element => {
                         ),
                     })}
                 />
+                {props.qOrder.length > 0 && (
+                    <div className="questionnaire-overview__actions">
+                        <Btn
+                            title={
+                                uploadStatus === 'loading' ? t('Creating questionnaire...') : t('Creat questionnaire')
+                            }
+                            onClick={handleUploadQuestionnaire}
+                            disabled={uploadStatus === 'loading'}
+                        />
+                        {uploadStatus === 'success' && (
+                            <span className="questionnaire-overview__upload-status questionnaire-overview__upload-status--success">
+                                {t('Questionnaire uploaded')}
+                            </span>
+                        )}
+                        {uploadStatus === 'error' && (
+                            <span className="questionnaire-overview__upload-status questionnaire-overview__upload-status--error">
+                                {uploadError || t('Failed to create questionnaire')}
+                            </span>
+                        )}
+                    </div>
+                )}
                 {props.qOrder.length === 0 && (
                     <p className="anchor-menu__placeholder">
                         {t(

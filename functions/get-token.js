@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 const axios = require('axios');
 const clientContext = require('./util/client-context');
+const { SCOPES, KEYCLOAK_AUDIENCE } = require('./util/auth-config');
+const { resolveRedirectOrigin } = require('./util/redirect-origin');
 const qs = require('qs');
 const cookie = require('cookie');
 const CryptoJS = require('crypto-js');
@@ -22,6 +24,13 @@ function decodeJwt(token) {
     } catch (error) {
         throw new Error(`Failed to decode JWT: ${error.message}`);
     }
+}
+
+function describeToken(token) {
+    if (!token) return 'n/a';
+    const head = token.slice(0, 10);
+    const tail = token.slice(-6);
+    return `${head}…${tail} (${token.length} chars)`;
 }
 
 function createCookie(token) {
@@ -47,6 +56,7 @@ exports.handler = async (event, context) => {
     const code = event.queryStringParameters.code;
     const state = event.queryStringParameters.state;
     const storedState = event.queryStringParameters.stored_state;
+    const redirectOrigin = resolveRedirectOrigin(event);
 
     if (!code) {
         return {
@@ -60,6 +70,10 @@ exports.handler = async (event, context) => {
 
     // Verify state matches (CSRF protection)
     if (!state || !storedState || state !== storedState) {
+        console.warn('[get-token] State mismatch detected', {
+            state,
+            storedState,
+        });
         return {
             statusCode: 400,
             body: JSON.stringify({
@@ -68,7 +82,7 @@ exports.handler = async (event, context) => {
         };
     }
 
-    const redirectUri = `${'http://localhost:3000'}/code`; // TODO: Real url?
+    const redirectUri = `${redirectOrigin}/code`;
     const tokenEndpoint = `${clientContext.ISSUER}protocol/openid-connect/token`;
 
     // Token exchange using Basic Auth
@@ -82,6 +96,11 @@ exports.handler = async (event, context) => {
         code: code,
         redirect_uri: redirectUri,
     };
+
+    body.scope = SCOPES;
+
+    body.audience = KEYCLOAK_AUDIENCE;
+    body.resource = KEYCLOAK_AUDIENCE;
 
     try {
         const tokenResponse = await axios.post(tokenEndpoint, qs.stringify(body), { headers });

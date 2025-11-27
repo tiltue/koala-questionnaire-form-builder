@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 const { Issuer } = require('openid-client');
+const { DEFAULT_REDIRECT_ORIGIN } = require('./redirect-origin');
 
 // Keycloak configuration
 const ISSUER = 'https://sso.koala.primbs.dev/realms/koala/';
@@ -18,7 +19,7 @@ const createClient = async () => {
         return new keycloakIssuer.Client({
             client_id: CLIENT_ID,
             client_secret: CLIENT_SECRET,
-            redirect_uris: [`${'http://localhost:3000'}/code`], // TODO: Real url?
+            redirect_uris: [`${DEFAULT_REDIRECT_ORIGIN}/code`],
             response_types: ['code'],
         });
     } catch (error) {

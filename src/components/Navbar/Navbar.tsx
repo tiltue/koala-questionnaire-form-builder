@@ -1,8 +1,9 @@
 import React, { useContext, useRef, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import { generateQuestionnaire } from '../../helpers/generateQuestionnaire';
 import { Languages, TreeContext } from '../../store/treeStore/treeStore';
 import Btn from '../Btn/Btn';
-import MoreIcon from '../../images/icons/ellipsis-horizontal-outline.svg';
+import HomeIcon from '../../images/icons/house-regular-full.svg';
 import useOutsideClick from '../../hooks/useOutsideClick';
 import './Navbar.css';
 import JSONView from '../JSONView/JSONView';
@@ -45,6 +46,7 @@ const Navbar = ({
     const navBarRef = useRef<HTMLDivElement>(null);
     const fileExtension = 'json';
     const { logout } = useAuth();
+    const history = useHistory();
 
     const hideMenu = () => {
         setSelectedMenuItem(MenuItem.none);
@@ -91,13 +93,14 @@ const Navbar = ({
         dispatch(saveAction());
     }
 
-    const handleMenuItemClick = (clickedItem: MenuItem) => {
-        if (selectedMenuItem !== clickedItem) {
-            setSelectedMenuItem(clickedItem);
-        } else {
-            hideMenu();
-        }
-    };
+    // Currently not needed as we disabled this
+    // const handleMenuItemClick = (clickedItem: MenuItem) => {
+    //     if (selectedMenuItem !== clickedItem) {
+    //         setSelectedMenuItem(clickedItem);
+    //     } else {
+    //         hideMenu();
+    //     }
+    // };
 
     const cachedProfile = sessionStorage.getItem('profile');
     const profile = cachedProfile ? JSON.parse(cachedProfile) : null;
@@ -110,11 +113,26 @@ const Navbar = ({
         return !!languages && Object.keys(languages).length > 0;
     };
 
+    const languageMenuOptions = [
+        { code: 'en-US', label: t('Change to English') },
+        { code: 'de-DE', label: t('Change to German') },
+    ];
+
     return (
         <>
-            <header ref={navBarRef}>
-                <div className="form-title">
-                    <h1>{getFileName()}</h1>
+            <header ref={navBarRef} className="builder-navbar">
+                <div className="navbar__left">
+                    <button
+                        type="button"
+                        className="navbar__home-btn"
+                        onClick={() => history.push('/')}
+                        aria-label={t('Go to frontpage')}
+                    >
+                        <img src={HomeIcon} alt="" aria-hidden="true" />
+                    </button>
+                    <div className="form-title">
+                        <h1>{t('Questionnaire Editor')}</h1>
+                    </div>
                 </div>
 
                 <div className="pull-right">
@@ -129,7 +147,7 @@ const Navbar = ({
                     <Btn title={t('Logout')} onClick={logout} />
                     <Btn title={t('Preview')} onClick={showFormFiller} />
                     <Btn title={t('Save')} onClick={() => exportToJsonAndDownload()} />
-                    <div
+                    {/* <div TODO: Do we need this?
                         className="more-menu"
                         tabIndex={0}
                         role="button"
@@ -139,7 +157,7 @@ const Navbar = ({
                         onKeyPress={(e) => e.code === 'Enter' && handleMenuItemClick(MenuItem.more)}
                     >
                         <img className="more-menu-icon" src={MoreIcon} alt="more icon" height={25} />
-                    </div>
+                    </div> */}
                 </div>
                 {selectedMenuItem === MenuItem.more && (
                     <div className="menu">
@@ -164,39 +182,20 @@ const Navbar = ({
                             title={t('Choices')}
                             onClick={() => callbackAndHide(() => setShowContained(!showContained))}
                         />
-                        {i18n.language !== 'nb-NO' && (
-                            <Btn
-                                title={t('Change to norwegian')}
-                                onClick={() =>
-                                    callbackAndHide(() => {
-                                        i18n.changeLanguage('nb-NO');
-                                        localStorage.setItem('editor_language', 'nb-NO');
-                                    })
-                                }
-                            />
-                        )}
-                        {i18n.language !== 'en-US' && (
-                            <Btn
-                                title={t('Change to English')}
-                                onClick={() =>
-                                    callbackAndHide(() => {
-                                        i18n.changeLanguage('en-US');
-                                        localStorage.setItem('editor_language', 'en-US');
-                                    })
-                                }
-                            />
-                        )}
-                        {i18n.language !== 'fr-FR' && (
-                            <Btn
-                                title={t('Change to French')}
-                                onClick={() =>
-                                    callbackAndHide(() => {
-                                        i18n.changeLanguage('fr-FR');
-                                        localStorage.setItem('editor_language', 'fr-FR');
-                                    })
-                                }
-                            />
-                        )}
+                        {languageMenuOptions
+                            .filter(({ code }) => i18n.language !== code)
+                            .map(({ code, label }) => (
+                                <Btn
+                                    key={code}
+                                    title={label}
+                                    onClick={() =>
+                                        callbackAndHide(() => {
+                                            i18n.changeLanguage(code);
+                                            localStorage.setItem('editor_language', code);
+                                        })
+                                    }
+                                />
+                            ))}
                     </div>
                 )}
             </header>

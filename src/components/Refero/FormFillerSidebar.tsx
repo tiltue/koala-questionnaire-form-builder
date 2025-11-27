@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { getSidebarElements, generateSectionContent } from '../../locales/referoSidebarResources';
 import { Questionnaire } from '../../types/fhir';
 
@@ -7,6 +8,7 @@ type Props = {
 };
 
 const FormFillerSidebar = ({ questionnaire }: Props): JSX.Element => {
+    const { t } = useTranslation();
     const [isSidebarViewEnabled, setIsSidebarViewEnabled] = React.useState(false);
     const sidebarData = getSidebarElements(questionnaire);
 
@@ -31,9 +33,9 @@ const FormFillerSidebar = ({ questionnaire }: Props): JSX.Element => {
             </button>
             {isSidebarViewEnabled && (
                 <div className="formFillerSidebar-content">
-                    {generateSectionContent('Alternativer for utfylling', sidebarData['SOT-1'])}
-                    {generateSectionContent('Veiledning og ansvarlig', sidebarData['SOT-2'])}
-                    {generateSectionContent('Behandling hos mottaker', sidebarData['SOT-3'])}
+                    {generateSectionContent(t('Options regarding completion (SOT-1)'), sidebarData['SOT-1'])}
+                    {generateSectionContent(t('Guidance and person responsible (SOT-2)'), sidebarData['SOT-2'])}
+                    {generateSectionContent(t('Processing by the recipient (SOT-3)'), sidebarData['SOT-3'])}
                 </div>
             )}
         </div>

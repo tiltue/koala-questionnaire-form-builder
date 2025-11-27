@@ -11,7 +11,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
-        "npm:@ckeditor/ckeditor5-react@3",
+        "npm:@ckeditor/ckeditor5-react@^6.2.0",
         "npm:@helsenorge/autosuggest@^28.2.1",
         "npm:@helsenorge/ckeditor5-build-markdown@24",
         "npm:@helsenorge/core-utils@^28.2.1",
@@ -19,7 +19,7 @@
         "npm:@helsenorge/designsystem-react@^4.3.0",
         "npm:@helsenorge/file-upload@^28.2.1",
         "npm:@helsenorge/form@^28.2.1",
-        "npm:@helsenorge/refero@13.2.2",
+        "npm:@helsenorge/refero@^21.3.3",
         "npm:@helsenorge/toolkit@^21.3.0-prerelease",
         "npm:@nosferatu500/react-sortable-tree@^3.0.3",
         "npm:@testing-library/jest-dom@^5.11.9",
@@ -48,7 +48,7 @@
         "npm:i18next@^19.6.3",
         "npm:idb@6",
         "npm:immer@^10.2.0",
-        "npm:jose@^6.1.2",
+        "npm:jose@^6.1.1",
         "npm:openid-client@^4.7.2",
         "npm:prettier@^2.2.1",
         "npm:qs@^6.11.2",

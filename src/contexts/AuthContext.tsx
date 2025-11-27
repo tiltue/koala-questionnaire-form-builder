@@ -5,6 +5,12 @@ type UserProfile = Record<string, unknown> & {
     given_name?: string;
     family_name?: string;
     sub?: string;
+    access_token?: string;
+    refresh_token?: string;
+    id_token?: string;
+    expires_in?: number;
+    token_type?: string;
+    scope?: string;
 };
 
 type AuthContextValue = {
@@ -95,7 +101,13 @@ export const AuthProvider = ({ children }: Props): JSX.Element => {
         setIsAuthenticating(true);
         setLoginError(null);
         try {
-            const response = await fetch('/.netlify/functions/authorization-code', {
+            const redirectOrigin = isBrowser ? window.location.origin : '';
+            const params = new URLSearchParams();
+            if (redirectOrigin) {
+                params.set('redirect_origin', redirectOrigin);
+            }
+            const query = params.toString();
+            const response = await fetch(`/.netlify/functions/authorization-code${query ? `?${query}` : ''}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
             });
