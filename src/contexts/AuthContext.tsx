@@ -29,15 +29,6 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const isBrowser = typeof window !== 'undefined';
 
-const describeToken = (token?: unknown): string => {
-    if (typeof token !== 'string' || token.length === 0) {
-        return 'n/a';
-    }
-    const head = token.slice(0, 10);
-    const tail = token.slice(-6);
-    return `${head}…${tail} (${token.length} chars)`;
-};
-
 const getStoredUser = (): UserProfile | null => {
     if (!isBrowser) return null;
     const raw = sessionStorage.getItem(AUTH_USER_STORAGE_KEY);
@@ -142,14 +133,6 @@ export const AuthProvider = ({ children }: Props): JSX.Element => {
         setUser(profile);
         setIsAuthenticating(false);
         setLoginError(null);
-        console.log('[AuthContext] Stored Keycloak profile summary', {
-            userId: profile.sub,
-            name: profile.name,
-            scope: profile.scope,
-            tokenType: profile.token_type,
-            accessToken: describeToken(profile.access_token),
-            refreshToken: describeToken(profile.refresh_token),
-        });
     }, []);
 
     const logout = useCallback(async () => {

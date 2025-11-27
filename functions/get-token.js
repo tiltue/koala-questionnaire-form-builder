@@ -33,10 +33,6 @@ function describeToken(token) {
     return `${head}…${tail} (${token.length} chars)`;
 }
 
-const logTokenExchange = (message, payload = {}) => {
-    console.log(`[get-token] ${message}`, payload);
-};
-
 function createCookie(token) {
     const hour = 3600000;
     const eightHours = 1 * 8 * hour;

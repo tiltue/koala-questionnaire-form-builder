@@ -5,17 +5,6 @@ import Btn from '../components/Btn/Btn';
 import { getStoredState, useAuth } from '../contexts/AuthContext';
 import './FrontPage.css';
 
-const describeToken = (token?: string | null): string => {
-    if (!token) {
-        return 'n/a';
-    }
-    return `${token.slice(0, 10)}…${token.slice(-6)} (${token.length} chars)`;
-};
-
-const logAuthCallback = (message: string, payload?: Record<string, unknown>): void => {
-    console.log(`[AuthCallback] ${message}`, payload ?? {});
-};
-
 const AuthCallback = (): JSX.Element => {
     const history = useHistory();
     const { completeLogin } = useAuth();
@@ -25,15 +14,9 @@ const AuthCallback = (): JSX.Element => {
     useEffect(() => {
         const finalize = async () => {
             const params = new URLSearchParams(window.location.search);
-            console.log(params.toString());
             const authCode = params.get('code');
             const returnedState = params.get('state');
             const storedState = getStoredState();
-            logAuthCallback('Loaded query parameters', {
-                hasAuthCode: Boolean(authCode),
-                returnedState,
-                storedStateExists: Boolean(storedState),
-            });
 
             if (!authCode || !returnedState || !storedState) {
                 setError('Missing authorization information. Please try signing in again.');
@@ -65,7 +48,6 @@ const AuthCallback = (): JSX.Element => {
                     params.set('redirect_origin', redirectOrigin);
                 }
                 const tokenUrl = `/.netlify/functions/get-token?${params.toString()}`;
-                logAuthCallback('Exchanging authorization code for tokens', { tokenUrl, redirectOrigin });
                 const response = await fetch(tokenUrl);
 
                 if (!response.ok) {
@@ -74,16 +56,6 @@ const AuthCallback = (): JSX.Element => {
                     throw new Error(errorData.error || 'Failed to exchange authorization code.');
                 }
                 const profile = await response.json();
-                logAuthCallback('Received profile from Keycloak', {
-                    userId: profile.sub,
-                    name: profile.name,
-                    scope: profile.scope,
-                    expiresIn: profile.expires_in,
-                    tokenType: profile.token_type,
-                    accessToken: describeToken(profile.access_token),
-                    refreshToken: describeToken(profile.refresh_token),
-                    idToken: describeToken(profile.id_token),
-                });
                 completeLogin(profile);
                 history.replace('/');
             } catch (err) {

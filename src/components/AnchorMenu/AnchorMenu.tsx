@@ -86,15 +86,6 @@ const YourExternalNodeComponent = DragSource(
     externalNodeCollect,
 )(ExternalNodeBaseComponent);
 
-const describeToken = (token?: string): string => {
-    if (!token) {
-        return 'n/a';
-    }
-    const head = token.slice(0, 8);
-    const tail = token.slice(-6);
-    return `${head}…${tail} (${token.length} chars)`;
-};
-
 const AnchorMenu = (props: AnchorMenuProps): JSX.Element => {
     const { t } = useTranslation();
     const { user } = useAuth();
@@ -104,19 +95,10 @@ const AnchorMenu = (props: AnchorMenuProps): JSX.Element => {
 
     const questionnaireApiConfig = React.useMemo<QuestionnaireServiceConfig>(() => {
         return {
-            baseUrl: process.env.REACT_APP_QUESTIONNAIRE_API_URL || process.env.QUESTIONNAIRE_API_URL || undefined,
+            baseUrl: process.env.QUESTIONNAIRE_API_URL || undefined,
             accessToken: typeof user?.access_token === 'string' ? user.access_token : undefined,
         };
     }, [user]);
-
-    React.useEffect(() => {
-        console.log('[AnchorMenu] Questionnaire API config updated', {
-            baseUrl: questionnaireApiConfig.baseUrl || 'n/a',
-            accessToken: describeToken(questionnaireApiConfig.accessToken),
-            hasUser: Boolean(user),
-            userId: user?.sub,
-        });
-    }, [questionnaireApiConfig.baseUrl, questionnaireApiConfig.accessToken, user]);
 
     const handleUploadQuestionnaire = async () => {
         if (!props.questionnaireJson) {
@@ -127,25 +109,13 @@ const AnchorMenu = (props: AnchorMenuProps): JSX.Element => {
         setUploadStatus('loading');
         setUploadError(null);
         console.groupCollapsed('[AnchorMenu] Upload questionnaire triggered');
-        console.log('Questionnaire length', props.questionnaireJson.length);
-        console.log('API base URL', questionnaireApiConfig.baseUrl);
-        console.log('Access token', describeToken(questionnaireApiConfig.accessToken));
         console.groupEnd();
 
         try {
             const parsedQuestionnaire = JSON.parse(props.questionnaireJson);
-            console.log('[AnchorMenu] Prepared Questionnaire payload', {
-                resourceType: parsedQuestionnaire?.resourceType,
-                questionnaireId: parsedQuestionnaire?.id,
-                hasItems: Boolean(parsedQuestionnaire?.item?.length),
-            });
 
-            const response = await createQuestionnaire(parsedQuestionnaire, questionnaireApiConfig);
+            await createQuestionnaire(parsedQuestionnaire, questionnaireApiConfig);
             setUploadStatus('success');
-            console.log('[AnchorMenu] Questionnaire uploaded successfully', {
-                questionnaireId: parsedQuestionnaire?.id,
-                backendResponse: response || 'No response body',
-            });
         } catch (error) {
             console.error('Failed to upload questionnaire', error);
             setUploadStatus('error');

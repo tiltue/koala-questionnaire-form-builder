@@ -1,29 +1,4 @@
-const DEFAULT_BASE_URL =
-    process.env.REACT_APP_QUESTIONNAIRE_API_URL ||
-    process.env.QUESTIONNAIRE_API_URL ||
-    '/.netlify/functions/questionnaire-response-proxy';
-
-const describeToken = (token?: string): string => {
-    if (!token) {
-        return 'n/a';
-    }
-    const head = token.slice(0, 10);
-    const tail = token.slice(-6);
-    return `${head}…${tail} (${token.length} chars)`;
-};
-
-const previewPayload = (payload?: QuestionnaireResponsePayload): string => {
-    if (!payload) {
-        return 'n/a';
-    }
-    try {
-        const serialized = JSON.stringify(payload);
-        const maxLength = 280;
-        return serialized.length > maxLength ? `${serialized.slice(0, maxLength)}…` : serialized;
-    } catch {
-        return '[unserializable payload]';
-    }
-};
+const DEFAULT_BASE_URL = process.env.QUESTIONNAIRE_API_URL || '/.netlify/functions/questionnaire-response-proxy';
 
 export interface QuestionnaireResponseServiceConfig {
     /**
@@ -72,17 +47,6 @@ async function executeRequest<T>({ method, path, config, body }: RequestOptions)
     }
 
     const requestUrl = buildRequestUrl(baseUrl, path);
-    const usingProxy = isProxyUrl(baseUrl);
-    console.log('[QuestionnaireResponseService] Sending request', {
-        method,
-        requestUrl,
-        baseUrl,
-        path,
-        accessToken: describeToken(config?.accessToken),
-        hasBody: Boolean(body),
-        payloadPreview: previewPayload(body),
-        usingProxy,
-    });
 
     let response: Response;
     try {
@@ -95,12 +59,6 @@ async function executeRequest<T>({ method, path, config, body }: RequestOptions)
         console.error('[QuestionnaireResponseService] Network error while calling backend', networkError);
         throw networkError;
     }
-
-    console.log('[QuestionnaireResponseService] Response received', {
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText,
-    });
 
     if (!response.ok) {
         const message = await response.text();

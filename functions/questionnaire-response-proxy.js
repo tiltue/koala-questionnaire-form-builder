@@ -61,10 +61,6 @@ const inspectToken = (token) => {
     };
 };
 
-const logProxy = (message, payload = {}) => {
-    console.log(`[questionnaire-response-proxy] ${message}`, payload);
-};
-
 const extractCookieToken = (headers = {}) => {
     const rawCookie = headers.cookie || headers.Cookie;
     if (!rawCookie) {
@@ -139,16 +135,6 @@ exports.handler = async (event) => {
 
     // Inspect token for debugging
     const tokenInfo = inspectToken(accessToken);
-    logProxy('Forwarding request to backend', {
-        method,
-        targetUrl,
-        baseUrl: TARGET_BASE_URL,
-        path,
-        hasBody: Boolean(event.body),
-        tokenSource,
-        accessToken: describeToken(accessToken),
-        tokenInfo,
-    });
 
     const headers = {
         'Content-Type': 'application/fhir+json',
@@ -173,20 +159,6 @@ exports.handler = async (event) => {
 
         const responseBody =
             typeof response.data === 'string' ? response.data : JSON.stringify(response.data ?? undefined);
-
-        logProxy('Backend responded', {
-            status: response.status,
-            statusText: response.statusText,
-            hasBody: Boolean(responseBody),
-        });
-
-        if (response.status === 401) {
-            logProxy('401 Unauthorized', {
-                tokenSource,
-                hasAudience: Boolean(tokenInfo?.claims?.aud),
-                audience: tokenInfo?.claims?.aud || 'missing',
-            });
-        }
 
         return {
             statusCode: response.status,

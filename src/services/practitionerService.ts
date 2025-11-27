@@ -1,7 +1,4 @@
-const DEFAULT_BASE_URL =
-    process.env.REACT_APP_QUESTIONNAIRE_API_URL ||
-    process.env.QUESTIONNAIRE_API_URL ||
-    '/.netlify/functions/questionnaire-response-proxy';
+const DEFAULT_BASE_URL = process.env.QUESTIONNAIRE_API_URL || '/.netlify/functions/questionnaire-response-proxy';
 
 export interface PractitionerServiceConfig {
     baseUrl?: string;
@@ -29,15 +26,6 @@ const buildRequestUrl = (baseUrl: string, path: string): string => {
     return `${baseUrl}${path}`;
 };
 
-const describeToken = (token?: string): string => {
-    if (!token) {
-        return 'n/a';
-    }
-    const head = token.slice(0, 10);
-    const tail = token.slice(-6);
-    return `${head}…${tail} (${token.length} chars)`;
-};
-
 async function executeRequest<T>({ method, path, config, body }: RequestOptions): Promise<T> {
     const baseUrl = config?.baseUrl || DEFAULT_BASE_URL;
 
@@ -55,16 +43,6 @@ async function executeRequest<T>({ method, path, config, body }: RequestOptions)
     }
 
     const requestUrl = buildRequestUrl(baseUrl, path);
-    const usingProxy = isProxyUrl(baseUrl);
-    console.log('[PractitionerService] Sending request', {
-        method,
-        requestUrl,
-        baseUrl,
-        path,
-        hasBody: Boolean(body),
-        usingProxy,
-        accessToken: describeToken(config?.accessToken),
-    });
 
     let response: Response;
     try {
@@ -77,12 +55,6 @@ async function executeRequest<T>({ method, path, config, body }: RequestOptions)
         console.error('[PractitionerService] Network error while calling backend', networkError);
         throw networkError;
     }
-
-    console.log('[PractitionerService] Response received', {
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText,
-    });
 
     if (!response.ok) {
         const message = await response.text();
@@ -126,6 +98,21 @@ export interface ParticipationPayload extends PractitionerPayload {
     therapist: string;
     participant: string;
     questionnaire: string;
+}
+
+export async function getPractitionerQuestionnaireById<T = unknown>(
+    id: string,
+    config?: PractitionerServiceConfig,
+): Promise<T> {
+    if (!id) {
+        throw new Error('Questionnaire id is required');
+    }
+
+    return executeRequest<T>({
+        method: 'GET',
+        path: `/Questionnaire/${id}`,
+        config,
+    });
 }
 
 export async function assignQuestionnaireToPatient<T = unknown>(

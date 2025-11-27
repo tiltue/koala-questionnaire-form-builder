@@ -1,7 +1,4 @@
-const DEFAULT_BASE_URL =
-    process.env.REACT_APP_QUESTIONNAIRE_API_URL ||
-    process.env.QUESTIONNAIRE_API_URL ||
-    '/.netlify/functions/questionnaire-response-proxy';
+const DEFAULT_BASE_URL = process.env.QUESTIONNAIRE_API_URL || '/.netlify/functions/questionnaire-response-proxy';
 
 export interface QuestionnaireServiceConfig {
     baseUrl?: string;
@@ -18,15 +15,6 @@ const buildRequestUrl = (baseUrl: string, path: string): string => {
         return `${baseUrl}?${params.toString()}`;
     }
     return `${baseUrl}${path}`;
-};
-
-const describeToken = (token?: string): string => {
-    if (!token) {
-        return 'n/a';
-    }
-    const head = token.slice(0, 10);
-    const tail = token.slice(-6);
-    return `${head}…${tail} (${token.length} chars)`;
 };
 
 export async function createQuestionnaire<T = unknown>(
@@ -52,15 +40,6 @@ export async function createQuestionnaire<T = unknown>(
     }
 
     const requestUrl = buildRequestUrl(baseUrl, '/Questionnaire');
-    const usingProxy = isProxyUrl(baseUrl);
-    console.log('[QuestionnaireService] Sending request', {
-        method: 'POST',
-        requestUrl,
-        baseUrl,
-        path: '/Questionnaire',
-        accessToken: describeToken(config?.accessToken),
-        usingProxy,
-    });
 
     let response: Response;
     try {
@@ -73,12 +52,6 @@ export async function createQuestionnaire<T = unknown>(
         console.error('[QuestionnaireService] Network error while calling backend', networkError);
         throw networkError;
     }
-
-    console.log('[QuestionnaireService] Response received', {
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText,
-    });
 
     if (!response.ok) {
         const message = await response.text();

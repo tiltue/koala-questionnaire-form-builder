@@ -4,16 +4,6 @@ const clientContext = require('./util/client-context');
 const { resolveRedirectOrigin } = require('./util/redirect-origin');
 const { SCOPES, KEYCLOAK_AUDIENCE } = require('./util/auth-config');
 
-const describeState = (value) => {
-    if (!value) return 'n/a';
-    if (value.length <= 8) return value;
-    return `${value.slice(0, 4)}…${value.slice(-4)} (${value.length} chars)`;
-};
-
-const logAuthRequest = (message, payload = {}) => {
-    console.log(`[authorization-code] ${message}`, payload);
-};
-
 // Generate random state string (32 characters)
 function randomString(length) {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -31,13 +21,6 @@ exports.handler = async (event, context) => {
         const state = randomString(32);
         const redirectOrigin = resolveRedirectOrigin(event);
         const redirectUri = `${redirectOrigin}/code`;
-
-        logAuthRequest('Starting authorization handshake', {
-            redirectOrigin,
-            redirectUri,
-            scope: SCOPES,
-            state: describeState(state),
-        });
 
         // Build authorization URL with optional audience/resource
         const authParams = {
@@ -64,11 +47,6 @@ exports.handler = async (event, context) => {
         } catch (parseError) {
             console.warn('[authorization-code] Failed to inspect authorization URL, using raw value', parseError);
         }
-
-        logAuthRequest('Generated authorization URL', {
-            authUrl,
-            redirectUri,
-        });
 
         return { statusCode: 200, body: JSON.stringify({ state, auth_url: authUrl }) };
     } catch (error) {

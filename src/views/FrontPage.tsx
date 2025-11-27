@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
     assignQuestionnaireToPatient,
     listPractitionerQuestionnaires,
+    getPractitionerQuestionnaireById,
     ParticipationPayload,
 } from '../services/practitionerService';
 
@@ -81,6 +82,8 @@ const FrontPage = (): JSX.Element => {
     const [assignError, setAssignError] = useState<string | null>(null);
     const [isAssigning, setIsAssigning] = useState(false);
     const [assignmentFeedback, setAssignmentFeedback] = useState<string | null>(null);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [downloadError, setDownloadError] = useState<string | null>(null);
     const accessToken = user?.access_token as string | undefined;
     const therapistId = user?.sub as string | undefined;
 
@@ -163,6 +166,8 @@ const FrontPage = (): JSX.Element => {
         setPatientUid('');
         setAssignError(null);
         setIsAssigning(false);
+        setDownloadError(null);
+        setIsDownloading(false);
     };
 
     const startAssign = (questionnaire: QuestionnaireSummary): void => {
@@ -206,6 +211,46 @@ const FrontPage = (): JSX.Element => {
             setAssignError(message);
         } finally {
             setIsAssigning(false);
+        }
+    };
+
+    const downloadQuestionnaire = async () => {
+        if (!selectedQuestionnaire) return;
+        if (!accessToken) {
+            setDownloadError(t('You must be logged in to download questionnaires.'));
+            return;
+        }
+
+        setDownloadError(null);
+        setIsDownloading(true);
+
+        try {
+            const questionnaire = await getPractitionerQuestionnaireById(selectedQuestionnaire.id, { accessToken });
+            const questionnaireJson = JSON.stringify(questionnaire, null, 2);
+            const filename = `${selectedQuestionnaire.name || selectedQuestionnaire.id || 'questionnaire'}.json`;
+            const contentType = 'application/json;charset=utf-8;';
+
+            /*eslint-disable */
+            if (window.navigator && (window.navigator as any).msSaveOrOpenBlob) {
+                const blob = new Blob([decodeURIComponent(encodeURI(questionnaireJson))], {
+                    type: contentType,
+                });
+                (navigator as any).msSaveOrOpenBlob(blob, filename);
+                /*eslint-enable */
+            } else {
+                const a = document.createElement('a');
+                a.download = filename;
+                a.href = 'data:' + contentType + ',' + encodeURIComponent(questionnaireJson);
+                a.target = '_blank';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t('Unknown error');
+            setDownloadError(message);
+        } finally {
+            setIsDownloading(false);
         }
     };
 
@@ -377,7 +422,14 @@ const FrontPage = (): JSX.Element => {
                             placeholder={t('Enter patient UID')}
                         />
                         {assignError && <div className="frontpage__error">{assignError}</div>}
+                        {downloadError && <div className="frontpage__error">{downloadError}</div>}
                         <div className="frontpage__assign-actions">
+                            <Btn
+                                title={isDownloading ? t('Downloading...') : t('Download')}
+                                variant="secondary"
+                                onClick={downloadQuestionnaire}
+                                disabled={isDownloading}
+                            />
                             <Btn title={t('Cancel')} variant="secondary" onClick={closeAssignModal} />
                             <Btn
                                 title={isAssigning ? t('Assigning...') : t('Assign')}
