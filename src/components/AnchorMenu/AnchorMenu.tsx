@@ -4,6 +4,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router-dom';
 import { ActionType, Items, MarkedItem, OrderItem } from '../../store/treeStore/treeStore';
 import { IQuestionnaireItemType } from '../../types/IQuestionnareItemType';
 import {
@@ -11,6 +12,7 @@ import {
     newItemAction,
     reorderItemAction,
     updateMarkedLinkIdAction,
+    resetQuestionnaireAction,
 } from '../../store/treeStore/treeActions';
 import { ValidationErrors } from '../../helpers/orphanValidation';
 import { SortableTreeWithoutDndContext as SortableTree } from '@nosferatu500/react-sortable-tree';
@@ -21,6 +23,7 @@ import { canTypeHaveChildren, getInitialItemConfig } from '../../helpers/questio
 import Btn from '../Btn/Btn';
 import { createQuestionnaire, QuestionnaireServiceConfig } from '../../services/questionnaireService';
 import { useAuth } from '../../contexts/AuthContext';
+import { deleteStateFromDb } from '../../store/treeStore/indexedDbHelper';
 
 export interface AnchorMenuProps {
     qOrder: OrderItem[];
@@ -89,6 +92,7 @@ const YourExternalNodeComponent = DragSource(
 const AnchorMenu = (props: AnchorMenuProps): JSX.Element => {
     const { t } = useTranslation();
     const { user } = useAuth();
+    const history = useHistory();
     const [collapsedNodes, setCollapsedNodes] = React.useState<string[]>([]);
     const [uploadStatus, setUploadStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [uploadError, setUploadError] = React.useState<string | null>(null);
@@ -116,6 +120,13 @@ const AnchorMenu = (props: AnchorMenuProps): JSX.Element => {
 
             await createQuestionnaire(parsedQuestionnaire, questionnaireApiConfig);
             setUploadStatus('success');
+
+            // Clear IndexedDB state to prevent restore modal from showing
+            await deleteStateFromDb();
+            // Reset questionnaire state
+            props.dispatch(resetQuestionnaireAction());
+            // Navigate to frontpage
+            history.push('/');
         } catch (error) {
             console.error('Failed to upload questionnaire', error);
             setUploadStatus('error');

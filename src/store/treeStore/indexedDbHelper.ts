@@ -45,3 +45,14 @@ export const getStateFromDb = async (): Promise<TreeState> => {
     }
     return Promise.reject('No questionnaire found in IndexedDB');
 };
+
+export const deleteStateFromDb = async (): Promise<void> => {
+    const database = await initializeDb();
+    if (database) {
+        const transaction = database.transaction(STORE_NAME, 'readwrite');
+        const objectStore = transaction.objectStore(STORE_NAME);
+        await objectStore.delete(QUESTIONNAIRE_STORE_ID);
+        await transaction.done;
+        database.close();
+    }
+};

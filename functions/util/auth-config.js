@@ -5,9 +5,10 @@ const DEFAULT_SCOPES = [
     'questionnaire_write',
     'questionnaire_view',
     'user_roles',
+    'xauth_read',
 ];
 
-const AUDIENCE_SCOPES = ['aud_questionnaire', 'aud_streaming'];
+const AUDIENCE_SCOPES = ['aud_questionnaire', 'aud_streaming', 'aud_xauth'];
 const KEYCLOAK_AUDIENCE = 'questionnaire';
 
 const SCOPES = Array.from(new Set([...DEFAULT_SCOPES, ...AUDIENCE_SCOPES])).join(' ');

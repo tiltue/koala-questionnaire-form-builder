@@ -16,6 +16,7 @@ import {
     getPractitionerQuestionnaireById,
     ParticipationPayload,
 } from '../services/practitionerService';
+import { getTargetUsers, XAuthApiException } from '../services/xAuthService';
 
 type QuestionnaireResource = {
     id?: string;
@@ -78,13 +79,17 @@ const FrontPage = (): JSX.Element => {
     const [questionnaireListError, setQuestionnaireListError] = useState<string | null>(null);
     const [isQuestionnaireListLoading, setIsQuestionnaireListLoading] = useState(false);
     const [selectedQuestionnaire, setSelectedQuestionnaire] = useState<QuestionnaireSummary | null>(null);
-    const [patientUid, setPatientUid] = useState('');
+    const [, setPatientUid] = useState('');
     const [assignError, setAssignError] = useState<string | null>(null);
     const [isAssigning, setIsAssigning] = useState(false);
     const [assignmentFeedback, setAssignmentFeedback] = useState<string | null>(null);
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadError, setDownloadError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [patients, setPatients] = useState<string[]>([]);
+    const [isLoadingPatients, setIsLoadingPatients] = useState(false);
+    const [patientsError, setPatientsError] = useState<string | null>(null);
+    const [patientSearchTerm, setPatientSearchTerm] = useState('');
     const accessToken = user?.access_token as string | undefined;
     const therapistId = user?.sub as string | undefined;
 
@@ -175,20 +180,54 @@ const FrontPage = (): JSX.Element => {
         setIsAssigning(false);
         setDownloadError(null);
         setIsDownloading(false);
+        setPatients([]);
+        setIsLoadingPatients(false);
+        setPatientsError(null);
+        setPatientSearchTerm('');
     };
 
-    const startAssign = (questionnaire: QuestionnaireSummary): void => {
+    const startAssign = async (questionnaire: QuestionnaireSummary): Promise<void> => {
         setAssignmentFeedback(null);
         setSelectedQuestionnaire(questionnaire);
         setPatientUid('');
         setAssignError(null);
+        setPatientsError(null);
+        setPatientSearchTerm('');
+
+        // Fetch patients when modal opens
+        if (!therapistId || !accessToken) {
+            setPatientsError(t('Unable to resolve therapist id from profile.'));
+            return;
+        }
+
+        setIsLoadingPatients(true);
+        try {
+            const targetUsers = await getTargetUsers(therapistId, { accessToken });
+            setPatients(targetUsers);
+        } catch (error) {
+            let errorMessage = t('Failed to load patients.');
+            if (error instanceof XAuthApiException) {
+                if (error.missingScopes && error.missingScopes.length > 0) {
+                    errorMessage = t('Missing required scopes: {{scopes}}', {
+                        scopes: error.missingScopes.join(', '),
+                    });
+                } else {
+                    errorMessage = `${t('Failed to load patients')}: ${error.message}`;
+                }
+            } else if (error instanceof Error) {
+                errorMessage = `${t('Failed to load patients')}: ${error.message}`;
+            }
+            setPatientsError(errorMessage);
+            console.error('[FrontPage] Error loading patients:', error);
+        } finally {
+            setIsLoadingPatients(false);
+        }
     };
 
-    const submitAssignment = async (event: React.FormEvent) => {
-        event.preventDefault();
+    const submitAssignment = async (patientUserId: string): Promise<void> => {
         if (!selectedQuestionnaire) return;
-        if (!patientUid.trim()) {
-            setAssignError(t('Please enter a patient UID.'));
+        if (!patientUserId.trim()) {
+            setAssignError(t('Please select a patient.'));
             return;
         }
         if (!therapistId) {
@@ -202,7 +241,7 @@ const FrontPage = (): JSX.Element => {
 
         const payload: ParticipationPayload = {
             therapist: therapistId,
-            participant: patientUid.trim(),
+            participant: patientUserId.trim(),
             questionnaire: selectedQuestionnaire.id,
         };
 
@@ -282,6 +321,14 @@ const FrontPage = (): JSX.Element => {
             item.title?.toLowerCase().includes(search) ||
             item.id?.toLowerCase().includes(search)
         );
+    });
+
+    const filteredPatients = patients.filter((patientId) => {
+        if (!patientSearchTerm.trim()) {
+            return true;
+        }
+        const search = patientSearchTerm.toLowerCase();
+        return patientId.toLowerCase().includes(search);
     });
 
     return (
@@ -438,24 +485,55 @@ const FrontPage = (): JSX.Element => {
             </div>
             {selectedQuestionnaire && (
                 <Modal title={t('Assign questionnaire')} close={closeAssignModal}>
-                    <form onSubmit={submitAssignment} className="frontpage__assign-form">
-                        <p>{t('Assign this questionnaire to a patient by providing their UID.')}</p>
+                    <div className="frontpage__assign-form">
+                        <p>{t('Select a patient to assign this questionnaire to.')}</p>
                         <div className="frontpage__assign-details">
                             <div>
                                 <strong>{t('Questionnaire')}</strong>
                             </div>
                             <div>{selectedQuestionnaire.displayName}</div>
                         </div>
-                        <label className="frontpage__assign-label" htmlFor="patient-uid">
-                            {t('Patient UID')}
-                        </label>
-                        <input
-                            type="text"
-                            id="patient-uid"
-                            value={patientUid}
-                            onChange={(event) => setPatientUid(event.target.value)}
-                            placeholder={t('Enter patient UID')}
-                        />
+                        {isLoadingPatients ? (
+                            <div className="frontpage__loading">
+                                <SpinnerBox />
+                                <p>{t('Loading patients...')}</p>
+                            </div>
+                        ) : patientsError ? (
+                            <div className="frontpage__error">{patientsError}</div>
+                        ) : (
+                            <>
+                                {patients.length > 0 && (
+                                    <input
+                                        type="text"
+                                        className="frontpage__search-input"
+                                        placeholder={t('Search patients...')}
+                                        value={patientSearchTerm}
+                                        onChange={(e) => setPatientSearchTerm(e.target.value)}
+                                    />
+                                )}
+                                {filteredPatients.length > 0 ? (
+                                    <ul className="frontpage__patient-list">
+                                        {filteredPatients.map((patientId) => (
+                                            <li key={patientId} className="frontpage__patient-item">
+                                                <div className="frontpage__patient-info">
+                                                    <span className="frontpage__patient-name">{patientId}</span>
+                                                </div>
+                                                <Btn
+                                                    title={isAssigning ? t('Assigning...') : t('Assign')}
+                                                    onClick={() => submitAssignment(patientId)}
+                                                    disabled={isAssigning}
+                                                    variant="primary"
+                                                />
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : patients.length > 0 ? (
+                                    <div className="frontpage__empty">{t('No patients found')}</div>
+                                ) : (
+                                    <div className="frontpage__empty">{t('No patients available')}</div>
+                                )}
+                            </>
+                        )}
                         {assignError && <div className="frontpage__error">{assignError}</div>}
                         {downloadError && <div className="frontpage__error">{downloadError}</div>}
                         <div className="frontpage__assign-actions">
@@ -466,13 +544,8 @@ const FrontPage = (): JSX.Element => {
                                 disabled={isDownloading}
                             />
                             <Btn title={t('Cancel')} variant="secondary" onClick={closeAssignModal} />
-                            <Btn
-                                title={isAssigning ? t('Assigning...') : t('Assign')}
-                                type="submit"
-                                disabled={isAssigning}
-                            />
                         </div>
-                    </form>
+                    </div>
                 </Modal>
             )}
         </>
