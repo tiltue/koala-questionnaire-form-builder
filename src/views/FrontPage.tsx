@@ -15,9 +15,13 @@ import {
     listPractitionerQuestionnaires,
     getPractitionerQuestionnaireById,
     listPractitionerTasks,
+    getTaskById,
     deleteTask,
     ParticipationPayload,
 } from '../services/practitionerService';
+import { getQuestionnaireResponseById } from '../services/questionnaireResponseService';
+import TaskResponseModal from '../components/TaskResponseModal/TaskResponseModal';
+import { QuestionnaireResponse } from '../types/fhir';
 import { getTargetUsers, XAuthApiException } from '../services/xAuthService';
 
 type QuestionnaireResource = {
@@ -161,6 +165,10 @@ const FrontPage = (): JSX.Element => {
     const [taskToDelete, setTaskToDelete] = useState<TaskSummary | null>(null);
     const [isDeletingTask, setIsDeletingTask] = useState(false);
     const [deleteTaskError, setDeleteTaskError] = useState<string | null>(null);
+    const [selectedTask, setSelectedTask] = useState<TaskSummary | null>(null);
+    const [questionnaireResponse, setQuestionnaireResponse] = useState<QuestionnaireResponse | null>(null);
+    const [isLoadingResponse, setIsLoadingResponse] = useState(false);
+    const [responseError, setResponseError] = useState<string | null>(null);
     const accessToken = user?.access_token as string | undefined;
     const therapistId = user?.sub as string | undefined;
 
@@ -479,6 +487,207 @@ const FrontPage = (): JSX.Element => {
         setDeleteTaskError(null);
     };
 
+    // TODO REMOVE MOCK: Create mock QuestionnaireResponse data for testing frontend
+    const createMockQuestionnaireResponse = (task: TaskSummary): QuestionnaireResponse => {
+        return {
+            resourceType: 'QuestionnaireResponse',
+            id: `mock-response-${task.id}`,
+            status: 'completed',
+            questionnaire: task.questionnaireId ? `Questionnaire/${task.questionnaireId}` : undefined,
+            authored: new Date().toISOString(),
+            author: {
+                reference: task.patientId ? `Patient/${task.patientId}` : undefined,
+                display: task.patientName || task.patientId,
+            },
+            item: [
+                {
+                    linkId: 'q1',
+                    text: 'What is your current age?',
+                    answer: [
+                        {
+                            valueInteger: 35,
+                        },
+                    ],
+                },
+                {
+                    linkId: 'q2',
+                    text: 'How would you rate your overall health?',
+                    answer: [
+                        {
+                            valueCoding: {
+                                system: 'http://example.org/health-rating',
+                                code: 'good',
+                                display: 'Good',
+                            },
+                        },
+                    ],
+                },
+                {
+                    linkId: 'q3',
+                    text: 'Do you have any chronic conditions?',
+                    answer: [
+                        {
+                            valueBoolean: true,
+                        },
+                    ],
+                },
+                {
+                    linkId: 'q4',
+                    text: 'If yes, please specify:',
+                    answer: [
+                        {
+                            valueString: 'Hypertension and Type 2 Diabetes',
+                        },
+                    ],
+                },
+                {
+                    linkId: 'q5',
+                    text: 'When did you last visit a doctor?',
+                    answer: [
+                        {
+                            valueDate: '2024-01-15',
+                        },
+                    ],
+                },
+                {
+                    linkId: 'q6',
+                    text: 'How many medications do you take daily?',
+                    answer: [
+                        {
+                            valueInteger: 3,
+                        },
+                    ],
+                },
+                {
+                    linkId: 'q7',
+                    text: 'Any additional comments or concerns?',
+                    answer: [
+                        {
+                            valueString: 'I would like to discuss my medication schedule during the next appointment.',
+                        },
+                    ],
+                },
+                {
+                    linkId: 'group1',
+                    text: 'Lifestyle Information',
+                    item: [
+                        {
+                            linkId: 'q8',
+                            text: 'Do you exercise regularly?',
+                            answer: [
+                                {
+                                    valueBoolean: true,
+                                },
+                            ],
+                        },
+                        {
+                            linkId: 'q9',
+                            text: 'How many times per week?',
+                            answer: [
+                                {
+                                    valueInteger: 4,
+                                },
+                            ],
+                        },
+                        {
+                            linkId: 'q10',
+                            text: 'What is your weight in kilograms?',
+                            answer: [
+                                {
+                                    valueQuantity: {
+                                        value: 75.5,
+                                        unit: 'kg',
+                                        system: 'http://unitsofmeasure.org',
+                                        code: 'kg',
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        };
+    };
+
+    const handleTaskClick = async (task: TaskSummary): Promise<void> => {
+        setSelectedTask(task);
+        setQuestionnaireResponse(null);
+        setResponseError(null);
+
+        if (!accessToken) {
+            setResponseError(t('You must be logged in to view responses.'));
+            return;
+        }
+
+        // TODO REMOVE MOCK: For testing - use mock data for ALL tasks
+        // Remove this block once backend has real QuestionnaireResponse data
+        const mockResponse = createMockQuestionnaireResponse(task);
+        setQuestionnaireResponse(mockResponse);
+        setIsLoadingResponse(false);
+        return;
+        // END TODO REMOVE MOCK
+
+        // If task is still requested (not yet answered), show modal with no response
+        if (task.status === 'requested') {
+            return;
+        }
+
+        // For tasks that are not 'requested', try to fetch the response
+        setIsLoadingResponse(true);
+
+        try {
+            // First, get the full Task resource to find the QuestionnaireResponse reference
+            const taskResource = await getTaskById<any>(task.id, { accessToken });
+
+            // Extract QuestionnaireResponse ID from Task.output
+            let responseId: string | null = null;
+
+            if (taskResource?.output && Array.isArray(taskResource.output) && taskResource.output.length > 0) {
+                const firstOutput = taskResource.output[0];
+                // The backend sets the value as a FhirString, which could be in valueString or value field
+                const outputValue =
+                    firstOutput?.valueString || firstOutput?.valueReference?.reference || (firstOutput as any)?.value;
+
+                if (outputValue) {
+                    // The value might be a string like "QuestionnaireResponse/{id}" or just "{id}"
+                    const valueStr = typeof outputValue === 'string' ? outputValue : outputValue.toString();
+                    if (valueStr.includes('QuestionnaireResponse/')) {
+                        responseId = valueStr.split('QuestionnaireResponse/').pop() || null;
+                    } else if (valueStr.includes('/')) {
+                        responseId = valueStr.split('/').pop() || null;
+                    } else {
+                        responseId = valueStr;
+                    }
+                }
+            }
+
+            if (!responseId) {
+                setResponseError(t('No response found for this task.'));
+                setIsLoadingResponse(false);
+                return;
+            }
+
+            // Fetch the QuestionnaireResponse
+            const response = await getQuestionnaireResponseById<QuestionnaireResponse>(responseId, {
+                accessToken,
+            });
+
+            setQuestionnaireResponse(response);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t('Unknown error');
+            setResponseError(message);
+            console.error('[FrontPage] Error loading QuestionnaireResponse:', error);
+        } finally {
+            setIsLoadingResponse(false);
+        }
+    };
+
+    const closeTaskResponseModal = (): void => {
+        setSelectedTask(null);
+        setQuestionnaireResponse(null);
+        setResponseError(null);
+    };
+
     return (
         <>
             {suggestRestore && (
@@ -682,7 +891,18 @@ const FrontPage = (): JSX.Element => {
                                         <ul className="frontpage__list">
                                             {filteredTasks.map((task) => (
                                                 <li key={task.id} className="frontpage__task-item">
-                                                    <div className="frontpage__task-content">
+                                                    <div
+                                                        className="frontpage__task-content frontpage__task-content--clickable"
+                                                        onClick={() => handleTaskClick(task)}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                handleTaskClick(task);
+                                                            }
+                                                        }}
+                                                    >
                                                         <span className="frontpage__list-title">
                                                             {t('Patient')}:{' '}
                                                             {task.patientName || task.patientId || t('Unknown')}
@@ -704,11 +924,18 @@ const FrontPage = (): JSX.Element => {
                                                                 {new Date(task.updatedAt).toLocaleString()}
                                                             </span>
                                                         )}
+                                                        {task.status === 'completed' && (
+                                                            <span className="frontpage__list-meta frontpage__list-meta--hint">
+                                                                {t('Click to view response')}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <Btn
                                                         title={t('Delete')}
                                                         variant="secondary"
-                                                        onClick={() => setTaskToDelete(task)}
+                                                        onClick={() => {
+                                                            setTaskToDelete(task);
+                                                        }}
                                                     />
                                                 </li>
                                             ))}
@@ -817,6 +1044,16 @@ const FrontPage = (): JSX.Element => {
                         </div>
                     </div>
                 </Modal>
+            )}
+            {selectedTask && (
+                <TaskResponseModal
+                    task={selectedTask}
+                    questionnaireResponse={questionnaireResponse}
+                    isLoading={isLoadingResponse}
+                    error={responseError}
+                    onClose={closeTaskResponseModal}
+                    accessToken={accessToken}
+                />
             )}
         </>
     );

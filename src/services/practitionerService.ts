@@ -167,6 +167,18 @@ export async function listPractitionerTasks<T = unknown>(
     });
 }
 
+export async function getTaskById<T = unknown>(id: string, config?: PractitionerServiceConfig): Promise<T> {
+    if (!id) {
+        throw new Error('Task id is required');
+    }
+
+    return executeRequest<T>({
+        method: 'GET',
+        path: `/Task/${id}`,
+        config,
+    });
+}
+
 export async function deleteTask<T = unknown>(id: string, config?: PractitionerServiceConfig): Promise<T> {
     if (!id) {
         throw new Error('Task id is required');
