@@ -619,13 +619,13 @@ const FrontPage = (): JSX.Element => {
             return;
         }
 
-        // TODO REMOVE MOCK: For testing - use mock data for ALL tasks
-        // Remove this block once backend has real QuestionnaireResponse data
-        const mockResponse = createMockQuestionnaireResponse(task);
-        setQuestionnaireResponse(mockResponse);
-        setIsLoadingResponse(false);
-        return;
-        // END TODO REMOVE MOCK
+        // // TODO REMOVE MOCK: For testing - use mock data for ALL tasks
+        // // Remove this block once backend has real QuestionnaireResponse data
+        // const mockResponse = createMockQuestionnaireResponse(task);
+        // setQuestionnaireResponse(mockResponse);
+        // setIsLoadingResponse(false);
+        // return;
+        // // END TODO REMOVE MOCK
 
         // If task is still requested (not yet answered), show modal with no response
         if (task.status === 'requested') {
