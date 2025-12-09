@@ -130,10 +130,11 @@ const TaskResponseModal = ({
         }
     };
 
-    // Fetch Questionnaire when we have questionnaireResponse
+    // Fetch Questionnaire to get name/title for display
     useEffect(() => {
         const fetchQuestionnaire = async () => {
-            if (!questionnaireResponse || !task.questionnaireId || !accessToken) {
+            // Fetch questionnaire if we have questionnaireId and accessToken, regardless of questionnaireResponse
+            if (!task.questionnaireId || !accessToken) {
                 return;
             }
 
@@ -161,7 +162,7 @@ const TaskResponseModal = ({
         };
 
         fetchQuestionnaire();
-    }, [questionnaireResponse, task.questionnaireId, accessToken, questionnaire, t]);
+    }, [task.questionnaireId, accessToken, questionnaire, t]);
 
     const currentLanguage = i18n.language || 'en-US';
 
@@ -181,7 +182,11 @@ const TaskResponseModal = ({
                         <div className="task-response__info-item">
                             <span className="task-response__info-label">{t('Questionnaire')}:</span>
                             <span className="task-response__info-value">
-                                {task.questionnaireName || task.questionnaireId || t('Unknown')}
+                                {questionnaire?.name?.trim() ||
+                                    questionnaire?.title?.trim() ||
+                                    task.questionnaireName ||
+                                    task.questionnaireId ||
+                                    t('Unknown')}
                             </span>
                         </div>
                         <div className="task-response__info-item">
@@ -313,7 +318,7 @@ const TaskResponseModal = ({
                                                     sticky={false}
                                                     saveButtonDisabled={true}
                                                     readOnly={true}
-                                                    syncQuestionnaireResponse={false}
+                                                    syncQuestionnaireResponse={true}
                                                     validateScriptInjection
                                                 />
                                             </div>

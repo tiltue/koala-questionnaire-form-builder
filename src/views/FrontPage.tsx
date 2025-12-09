@@ -21,7 +21,8 @@ import {
 } from '../services/practitionerService';
 import { getQuestionnaireResponseById } from '../services/questionnaireResponseService';
 import TaskResponseModal from '../components/TaskResponseModal/TaskResponseModal';
-import { QuestionnaireResponse } from '../types/fhir';
+import QuestionnairePreviewModal from '../components/QuestionnairePreviewModal/QuestionnairePreviewModal';
+import { QuestionnaireResponse, Questionnaire } from '../types/fhir';
 import { getTargetUsers, XAuthApiException } from '../services/xAuthService';
 
 type QuestionnaireResource = {
@@ -169,6 +170,11 @@ const FrontPage = (): JSX.Element => {
     const [questionnaireResponse, setQuestionnaireResponse] = useState<QuestionnaireResponse | null>(null);
     const [isLoadingResponse, setIsLoadingResponse] = useState(false);
     const [responseError, setResponseError] = useState<string | null>(null);
+    const [previewQuestionnaire, setPreviewQuestionnaire] = useState<Questionnaire | null>(null);
+    const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+    const [previewError, setPreviewError] = useState<string | null>(null);
+    const [questionnaireToPreview, setQuestionnaireToPreview] = useState<QuestionnaireSummary | null>(null);
+    const [selectedPatients, setSelectedPatients] = useState<Set<string>>(new Set());
     const accessToken = user?.access_token as string | undefined;
     const therapistId = user?.sub as string | undefined;
 
@@ -300,6 +306,7 @@ const FrontPage = (): JSX.Element => {
         setIsLoadingPatients(false);
         setPatientsError(null);
         setPatientSearchTerm('');
+        setSelectedPatients(new Set());
     };
 
     const startAssign = async (questionnaire: QuestionnaireSummary): Promise<void> => {
@@ -340,10 +347,22 @@ const FrontPage = (): JSX.Element => {
         }
     };
 
-    const submitAssignment = async (patientUserId: string): Promise<void> => {
+    const handlePatientToggle = (patientId: string): void => {
+        setSelectedPatients((prev) => {
+            const newSet = new Set(prev);
+            if (newSet.has(patientId)) {
+                newSet.delete(patientId);
+            } else {
+                newSet.add(patientId);
+            }
+            return newSet;
+        });
+    };
+
+    const submitAssignment = async (): Promise<void> => {
         if (!selectedQuestionnaire) return;
-        if (!patientUserId.trim()) {
-            setAssignError(t('Please select a patient.'));
+        if (selectedPatients.size === 0) {
+            setAssignError(t('Please select at least one patient.'));
             return;
         }
         if (!therapistId) {
@@ -355,19 +374,45 @@ const FrontPage = (): JSX.Element => {
             return;
         }
 
-        const payload: ParticipationPayload = {
-            therapist: therapistId,
-            participant: patientUserId.trim(),
-            questionnaire: selectedQuestionnaire.id,
-        };
-
         setAssignError(null);
         setIsAssigning(true);
 
+        const patientIds = Array.from(selectedPatients);
+        const errors: string[] = [];
+        let successCount = 0;
+
         try {
-            await assignQuestionnaireToPatient(payload, { accessToken });
-            setAssignmentFeedback(t('Questionnaire assigned to patient.'));
-            closeAssignModal();
+            // Assign questionnaire to each selected patient sequentially
+            for (const patientId of patientIds) {
+                try {
+                    const payload: ParticipationPayload = {
+                        therapist: therapistId,
+                        participant: patientId.trim(),
+                        questionnaire: selectedQuestionnaire.id,
+                    };
+                    await assignQuestionnaireToPatient(payload, { accessToken });
+                    successCount++;
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : t('Unknown error');
+                    errors.push(`${patientId}: ${message}`);
+                }
+            }
+
+            if (errors.length === 0) {
+                setAssignmentFeedback(t('Questionnaire assigned to {{count}} patient(s).', { count: successCount }));
+                closeAssignModal();
+            } else if (successCount > 0) {
+                setAssignError(
+                    t('Partially assigned: {{success}} succeeded, {{failed}} failed.', {
+                        success: successCount,
+                        failed: errors.length,
+                    }) +
+                        ' ' +
+                        errors.join('; '),
+                );
+            } else {
+                setAssignError(t('Failed to assign questionnaire.') + ' ' + errors.join('; '));
+            }
         } catch (error) {
             const message = error instanceof Error ? error.message : t('Unknown error');
             setAssignError(message);
@@ -688,6 +733,38 @@ const FrontPage = (): JSX.Element => {
         setResponseError(null);
     };
 
+    const handlePreviewQuestionnaire = async (questionnaire: QuestionnaireSummary): Promise<void> => {
+        setQuestionnaireToPreview(questionnaire);
+        setPreviewQuestionnaire(null);
+        setPreviewError(null);
+
+        if (!accessToken) {
+            setPreviewError(t('You must be logged in to preview questionnaires.'));
+            return;
+        }
+
+        setIsLoadingPreview(true);
+
+        try {
+            const fetchedQuestionnaire = await getPractitionerQuestionnaireById<Questionnaire>(questionnaire.id, {
+                accessToken,
+            });
+            setPreviewQuestionnaire(fetchedQuestionnaire);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t('Unknown error');
+            setPreviewError(message);
+            console.error('[FrontPage] Error loading Questionnaire for preview:', error);
+        } finally {
+            setIsLoadingPreview(false);
+        }
+    };
+
+    const closePreviewModal = (): void => {
+        setQuestionnaireToPreview(null);
+        setPreviewQuestionnaire(null);
+        setPreviewError(null);
+    };
+
     return (
         <>
             {suggestRestore && (
@@ -808,7 +885,9 @@ const FrontPage = (): JSX.Element => {
                                             className="frontpage__search-input"
                                             placeholder={t('Search questionnaires...')}
                                             value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                setSearchTerm(e.target.value)
+                                            }
                                         />
                                     )}
                                     {assignmentFeedback && (
@@ -822,11 +901,18 @@ const FrontPage = (): JSX.Element => {
                                     {filteredQuestionnaires.length > 0 ? (
                                         <ul className="frontpage__list">
                                             {filteredQuestionnaires.map((item) => (
-                                                <li key={item.id}>
-                                                    <button
-                                                        type="button"
-                                                        className="frontpage__list-button"
+                                                <li key={item.id} className="frontpage__questionnaire-item">
+                                                    <div
+                                                        className="frontpage__task-content frontpage__task-content--clickable"
                                                         onClick={() => startAssign(item)}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                startAssign(item);
+                                                            }
+                                                        }}
                                                     >
                                                         <span className="frontpage__list-title">
                                                             {item.displayName}
@@ -850,7 +936,14 @@ const FrontPage = (): JSX.Element => {
                                                                 {new Date(item.updatedAt).toLocaleString()}
                                                             </span>
                                                         )}
-                                                    </button>
+                                                    </div>
+                                                    <Btn
+                                                        title={t('Preview')}
+                                                        variant="secondary"
+                                                        onClick={() => {
+                                                            handlePreviewQuestionnaire(item);
+                                                        }}
+                                                    />
                                                 </li>
                                             ))}
                                         </ul>
@@ -879,7 +972,9 @@ const FrontPage = (): JSX.Element => {
                                             className="frontpage__search-input"
                                             placeholder={t('Search tasks...')}
                                             value={taskSearchTerm}
-                                            onChange={(e) => setTaskSearchTerm(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                setTaskSearchTerm(e.target.value)
+                                            }
                                         />
                                     )}
                                     {taskListError && (
@@ -954,7 +1049,7 @@ const FrontPage = (): JSX.Element => {
             {selectedQuestionnaire && (
                 <Modal title={t('Assign questionnaire')} close={closeAssignModal}>
                     <div className="frontpage__assign-form">
-                        <p>{t('Select a patient to assign this questionnaire to.')}</p>
+                        <p>{t('Select one or more patients to assign this questionnaire to.')}</p>
                         <div className="frontpage__assign-details">
                             <div>
                                 <strong>{t('Questionnaire')}</strong>
@@ -982,16 +1077,24 @@ const FrontPage = (): JSX.Element => {
                                 {filteredPatients.length > 0 ? (
                                     <ul className="frontpage__patient-list">
                                         {filteredPatients.map((patientId) => (
-                                            <li key={patientId} className="frontpage__patient-item">
-                                                <div className="frontpage__patient-info">
-                                                    <span className="frontpage__patient-name">{patientId}</span>
-                                                </div>
-                                                <Btn
-                                                    title={isAssigning ? t('Assigning...') : t('Assign')}
-                                                    onClick={() => submitAssignment(patientId)}
-                                                    disabled={isAssigning}
-                                                    variant="primary"
-                                                />
+                                            <li
+                                                key={patientId}
+                                                className={`frontpage__patient-item ${
+                                                    selectedPatients.has(patientId)
+                                                        ? 'frontpage__patient-item--selected'
+                                                        : ''
+                                                }`}
+                                                onClick={() => !isAssigning && handlePatientToggle(patientId)}
+                                                role="button"
+                                                tabIndex={0}
+                                                onKeyDown={(e: React.KeyboardEvent) => {
+                                                    if (!isAssigning && (e.key === 'Enter' || e.key === ' ')) {
+                                                        e.preventDefault();
+                                                        handlePatientToggle(patientId);
+                                                    }
+                                                }}
+                                            >
+                                                <span className="frontpage__patient-name">{patientId}</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -1005,6 +1108,18 @@ const FrontPage = (): JSX.Element => {
                         {assignError && <div className="frontpage__error">{assignError}</div>}
                         {downloadError && <div className="frontpage__error">{downloadError}</div>}
                         <div className="frontpage__assign-actions">
+                            <Btn
+                                title={
+                                    isAssigning
+                                        ? t('Assigning...')
+                                        : selectedPatients.size > 0
+                                        ? t('Assign to {{count}} selected', { count: selectedPatients.size })
+                                        : t('Assign')
+                                }
+                                variant="primary"
+                                onClick={submitAssignment}
+                                disabled={isAssigning || selectedPatients.size === 0}
+                            />
                             <Btn
                                 title={isDownloading ? t('Downloading...') : t('Download')}
                                 variant="secondary"
@@ -1053,6 +1168,14 @@ const FrontPage = (): JSX.Element => {
                     error={responseError}
                     onClose={closeTaskResponseModal}
                     accessToken={accessToken}
+                />
+            )}
+            {questionnaireToPreview && (
+                <QuestionnairePreviewModal
+                    questionnaire={previewQuestionnaire}
+                    isLoading={isLoadingPreview}
+                    error={previewError}
+                    onClose={closePreviewModal}
                 />
             )}
         </>

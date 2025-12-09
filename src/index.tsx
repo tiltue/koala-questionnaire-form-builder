@@ -1,3 +1,6 @@
+// Fix for "process is not defined" error in Webpack 5 / CRA 5
+window.process = window.process || { env: { NODE_ENV: 'development' } };
+
 import './index.css';
 import './components/Refero/styles/refero.scss';
 

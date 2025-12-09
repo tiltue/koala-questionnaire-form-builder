@@ -235,7 +235,7 @@ const AdvancedQuestionOptions = (props: AdvancedQuestionOptionsProps): JSX.Eleme
                             {`${t('LinkId is already in use')} `}
                             <button onClick={resetLinkId}>
                                 <img src={UndoIcon} height={16} />
-                                {` ${t('Sett tilbake til opprinnelig verdi')}`}
+                                {` ${t('Reset to original value')}`}
                             </button>
                         </div>
                     )}

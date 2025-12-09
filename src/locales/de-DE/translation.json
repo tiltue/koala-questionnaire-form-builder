@@ -101,6 +101,8 @@
     "Add ({0} ValueSet) in predefined valuesets": "Füge ({0} ValueSet) zu vordefinierten ValueSets hinzu",
     "Import": "Importieren",
     "Back": "Zurück",
+    "This questionnaire has not been answered yet.": "Die Umfrage wurde noch nicht beantwortet.",
+    "The task status is \"requested\" which means it is waiting for the patient to complete the questionnaire.": "Der Task-Status ist \"requested\", was bedeutet, dass darauf gewartet wird, dass der Patient den Fragebogen ausfüllt.",
     "JSON structure": "JSON Struktur",
     "Predefined valuesets": "Vordefinierte ValueSets",
     "Sublabel": "Unterbeschriftung",
