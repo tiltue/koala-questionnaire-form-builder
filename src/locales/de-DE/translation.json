@@ -407,6 +407,7 @@
     "You must be logged in to assign questionnaires.": "Sie müssen angemeldet sein, um Fragebögen zuzuweisen.",
     "Assigning...": "Wird zugewiesen...",
     "Assign": "Zuweisen",
+    "Assign to {{count}} selected": "{{count}} Ausgewählten zuweisen",
     "Download": "Herunterladen",
     "Downloading...": "Wird heruntergeladen...",
     "You must be logged in to download questionnaires.": "Sie müssen angemeldet sein, um Fragebögen herunterzuladen.",

@@ -405,6 +405,7 @@
     "You must be logged in to assign questionnaires.": "You must be logged in to assign questionnaires.",
     "Assigning...": "Assigning...",
     "Assign": "Assign",
+    "Assign to {{count}} selected": "Assign to {{count}} selected",
     "Download": "Download",
     "Downloading...": "Downloading...",
     "You must be logged in to download questionnaires.": "You must be logged in to download questionnaires.",
