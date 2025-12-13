@@ -24,6 +24,7 @@ import TaskResponseModal from '../components/TaskResponseModal/TaskResponseModal
 import QuestionnairePreviewModal from '../components/QuestionnairePreviewModal/QuestionnairePreviewModal';
 import { QuestionnaireResponse, Questionnaire } from '../types/fhir';
 import { getTargetUsers, XAuthApiException } from '../services/xAuthService';
+import { generateMockQuestionnaireResponse } from '../helpers/generateMockQuestionnaireResponse';
 
 type QuestionnaireResource = {
     id?: string;
@@ -533,125 +534,27 @@ const FrontPage = (): JSX.Element => {
     };
 
     // TODO REMOVE MOCK: Create mock QuestionnaireResponse data for testing frontend
-    const createMockQuestionnaireResponse = (task: TaskSummary): QuestionnaireResponse => {
-        return {
-            resourceType: 'QuestionnaireResponse',
-            id: `mock-response-${task.id}`,
-            status: 'completed',
-            questionnaire: task.questionnaireId ? `Questionnaire/${task.questionnaireId}` : undefined,
-            authored: new Date().toISOString(),
-            author: {
-                reference: task.patientId ? `Patient/${task.patientId}` : undefined,
-                display: task.patientName || task.patientId,
-            },
-            item: [
-                {
-                    linkId: 'q1',
-                    text: 'What is your current age?',
-                    answer: [
-                        {
-                            valueInteger: 35,
-                        },
-                    ],
-                },
-                {
-                    linkId: 'q2',
-                    text: 'How would you rate your overall health?',
-                    answer: [
-                        {
-                            valueCoding: {
-                                system: 'http://example.org/health-rating',
-                                code: 'good',
-                                display: 'Good',
-                            },
-                        },
-                    ],
-                },
-                {
-                    linkId: 'q3',
-                    text: 'Do you have any chronic conditions?',
-                    answer: [
-                        {
-                            valueBoolean: true,
-                        },
-                    ],
-                },
-                {
-                    linkId: 'q4',
-                    text: 'If yes, please specify:',
-                    answer: [
-                        {
-                            valueString: 'Hypertension and Type 2 Diabetes',
-                        },
-                    ],
-                },
-                {
-                    linkId: 'q5',
-                    text: 'When did you last visit a doctor?',
-                    answer: [
-                        {
-                            valueDate: '2024-01-15',
-                        },
-                    ],
-                },
-                {
-                    linkId: 'q6',
-                    text: 'How many medications do you take daily?',
-                    answer: [
-                        {
-                            valueInteger: 3,
-                        },
-                    ],
-                },
-                {
-                    linkId: 'q7',
-                    text: 'Any additional comments or concerns?',
-                    answer: [
-                        {
-                            valueString: 'I would like to discuss my medication schedule during the next appointment.',
-                        },
-                    ],
-                },
-                {
-                    linkId: 'group1',
-                    text: 'Lifestyle Information',
-                    item: [
-                        {
-                            linkId: 'q8',
-                            text: 'Do you exercise regularly?',
-                            answer: [
-                                {
-                                    valueBoolean: true,
-                                },
-                            ],
-                        },
-                        {
-                            linkId: 'q9',
-                            text: 'How many times per week?',
-                            answer: [
-                                {
-                                    valueInteger: 4,
-                                },
-                            ],
-                        },
-                        {
-                            linkId: 'q10',
-                            text: 'What is your weight in kilograms?',
-                            answer: [
-                                {
-                                    valueQuantity: {
-                                        value: 75.5,
-                                        unit: 'kg',
-                                        system: 'http://unitsofmeasure.org',
-                                        code: 'kg',
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        };
+    const createMockQuestionnaireResponse = async (
+        task: TaskSummary,
+        accessToken?: string,
+    ): Promise<QuestionnaireResponse | null> => {
+        if (!task.questionnaireId || !accessToken) {
+            console.warn('[createMockQuestionnaireResponse] Missing questionnaireId or accessToken');
+            return null;
+        }
+
+        try {
+            // Fetch the actual Questionnaire to get its structure
+            const questionnaire = await getPractitionerQuestionnaireById<Questionnaire>(task.questionnaireId, {
+                accessToken,
+            });
+
+            // Generate a mock response that matches the Questionnaire's structure
+            return generateMockQuestionnaireResponse(questionnaire, task);
+        } catch (error) {
+            console.error('[createMockQuestionnaireResponse] Error fetching Questionnaire:', error);
+            return null;
+        }
     };
 
     const handleTaskClick = async (task: TaskSummary): Promise<void> => {
@@ -664,11 +567,22 @@ const FrontPage = (): JSX.Element => {
             return;
         }
 
-        // // TODO REMOVE MOCK: For testing - use mock data for ALL tasks
-        // // Remove this block once backend has real QuestionnaireResponse data
-        // const mockResponse = createMockQuestionnaireResponse(task);
-        // setQuestionnaireResponse(mockResponse);
-        // setIsLoadingResponse(false);
+        // TODO REMOVE MOCK: For testing - use mock data for ALL tasks
+        // Remove this block once backend has real QuestionnaireResponse data
+        // try {
+        //     const mockResponse = await createMockQuestionnaireResponse(task, accessToken);
+        //     if (mockResponse) {
+        //         setQuestionnaireResponse(mockResponse);
+        //     } else {
+        //         setResponseError(t('Failed to generate mock response. Please ensure the questionnaire exists.'));
+        //     }
+        // } catch (error) {
+        //     const message = error instanceof Error ? error.message : t('Unknown error');
+        //     setResponseError(message);
+        //     console.error('[handleTaskClick] Error creating mock response:', error);
+        // } finally {
+        //     setIsLoadingResponse(false);
+        // }
         // return;
         // // END TODO REMOVE MOCK
 
