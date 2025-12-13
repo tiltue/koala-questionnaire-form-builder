@@ -1,0 +1,43 @@
+.questionnaire-preview {
+    position: relative;
+    min-height: 400px;
+}
+
+.questionnaire-preview__loading,
+.questionnaire-preview__error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+}
+
+.questionnaire-preview__error {
+    color: #d32f2f;
+}
+
+.questionnaire-preview__container {
+    position: relative;
+    width: 100%;
+    height: 80vh;
+    overflow: auto;
+}
+
+.questionnaire-preview__refero-container {
+    width: 100%;
+    height: 100%;
+}
+
+.questionnaire-preview__refero-container .page_refero {
+    width: 100%;
+    height: 100%;
+}
+
+/* Hide bottom buttons (Submit, Show QuestionnaireResponse, Cancel) in preview mode from FrontPage */
+.questionnaire-preview__refero-container .page_refero .page_refero__saveblock,
+.questionnaire-preview__refero-container .page_refero .page_refero__buttonwrapper,
+.questionnaire-preview__refero-container .page_refero .page_refero__stickybar {
+    display: none !important;
+}
+

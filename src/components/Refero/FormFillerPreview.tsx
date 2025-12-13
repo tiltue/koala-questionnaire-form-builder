@@ -139,7 +139,7 @@ const FormFillerPreview = ({ showFormFiller, language, state }: Props): JSX.Elem
                         ) : (
                             <div>
                                 <p>{JSON.stringify(questionnaireResponse)}</p>
-                                <Button onClick={() => setShowResponse(false)}>Tilbake til skjemautfyller</Button>
+                                <Button onClick={() => setShowResponse(false)}>{t('Back')}</Button>
                             </div>
                         )}
                     </div>

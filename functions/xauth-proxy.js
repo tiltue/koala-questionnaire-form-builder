@@ -3,12 +3,12 @@ const axios = require('axios');
 const cookie = require('cookie');
 const CryptoJS = require('crypto-js');
 
-const TARGET_BASE_URL = process.env.QUESTIONNAIRE_API_URL;
-const ALLOWED_METHODS = ['GET', 'POST', 'DELETE'];
+const TARGET_BASE_URL = process.env.XAUTH_API_URL || 'https://api.koala.primbs.dev/api/xauth/v0';
+const ALLOWED_METHODS = ['GET'];
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Koala-Access-Token',
-    'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET,OPTIONS',
 };
 const COOKIE_NAME = 'auth_cookie';
 const COOKIE_SECRET = process.env.CINCINNO || 'default-secret-key';
@@ -27,7 +27,7 @@ const extractCookieToken = (headers = {}) => {
         const decrypted = bytes.toString(CryptoJS.enc.Utf8);
         return decrypted || null;
     } catch (error) {
-        console.warn('[questionnaire-response-proxy] Failed to decrypt auth cookie', error.message);
+        console.warn('[xauth-proxy] Failed to decrypt auth cookie', error.message);
         return null;
     }
 };
@@ -45,14 +45,10 @@ const normalizeBearer = (value) => {
 const resolveAccessToken = (event) => {
     const headers = event.headers || {};
     const authHeader = normalizeBearer(headers.authorization || headers.Authorization);
-    const customHeader = normalizeBearer(headers['x-koala-access-token'] || headers['X-Koala-Access-Token']);
     const cookieToken = extractCookieToken(headers);
 
     if (authHeader) {
         return { token: authHeader, source: 'authorization-header' };
-    }
-    if (customHeader) {
-        return { token: customHeader, source: 'x-koala-access-token' };
     }
     if (cookieToken) {
         return { token: cookieToken, source: 'cookie' };
@@ -81,27 +77,32 @@ exports.handler = async (event) => {
         };
     }
 
-    const path = event.queryStringParameters?.path || '/QuestionnaireResponse';
-    const targetUrl = `${TARGET_BASE_URL}${path}`;
+    // Extract path from query parameter (e.g., ?path=/userId or ?path=/)
+    const path = event.queryStringParameters?.path || '/';
+    // Ensure path starts with /
+    const normalizedPath = path.startsWith('/') ? path : '/' + path;
+    const targetUrl = `${TARGET_BASE_URL}${normalizedPath}`;
     const { token: accessToken } = resolveAccessToken(event);
 
-    const headers = {
-        'Content-Type': 'application/fhir+json',
-        Accept: 'application/fhir+json',
-    };
-
-    if (accessToken) {
-        headers.Authorization = `Bearer ${accessToken}`;
+    if (!accessToken) {
+        return {
+            statusCode: 401,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Missing access token' }),
+        };
     }
 
-    const bodyString = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : event.body;
+    const headers = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+    };
 
     try {
         const response = await axios({
             method,
             url: targetUrl,
             headers,
-            data: method === 'GET' || method === 'DELETE' ? undefined : bodyString,
             timeout: 30000,
             validateStatus: () => true,
         });
@@ -118,12 +119,12 @@ exports.handler = async (event) => {
             body: responseBody ?? '',
         };
     } catch (error) {
-        console.error('[questionnaire-response-proxy] Request to backend failed', error.message);
+        console.error('[xauth-proxy] Request to XAuth server failed', error.message);
         return {
             statusCode: 502,
             headers: CORS_HEADERS,
             body: JSON.stringify({
-                error: 'Failed to reach Questionnaire backend',
+                error: 'Failed to reach XAuth server',
                 message: error.message,
             }),
         };
