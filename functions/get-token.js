@@ -53,29 +53,58 @@ function basicAuthHeader(clientId, clientSecret) {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 exports.handler = async (event, context) => {
+    console.log('[get-token] Request received', {
+        httpMethod: event.httpMethod,
+        path: event.path,
+        queryParams: {
+            hasCode: Boolean(event.queryStringParameters?.code),
+            hasState: Boolean(event.queryStringParameters?.state),
+            hasStoredState: Boolean(event.queryStringParameters?.stored_state),
+            redirectOrigin: event.queryStringParameters?.redirect_origin,
+        },
+        headers: {
+            origin: event.headers?.origin || event.headers?.Origin,
+            referer: event.headers?.referer || event.headers?.Referer,
+        },
+    });
+
     const code = event.queryStringParameters.code;
     const state = event.queryStringParameters.state;
     const storedState = event.queryStringParameters.stored_state;
     const redirectOrigin = resolveRedirectOrigin(event);
 
+    console.log('[get-token] Resolved redirect origin', {
+        redirectOrigin,
+        queryOrigin: event.queryStringParameters?.redirect_origin,
+        headerOrigin: event.headers?.origin || event.headers?.Origin,
+        headerReferer: event.headers?.referer || event.headers?.Referer,
+    });
+
     if (!code) {
+        console.error('[get-token] Missing authorization code');
         return {
             statusCode: 400,
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
                 error: 'Missing authorization code.',
             }),
-            client,
         };
     }
 
     // Verify state matches (CSRF protection)
     if (!state || !storedState || state !== storedState) {
         console.warn('[get-token] State mismatch detected', {
-            state,
-            storedState,
+            state: state ? `${state.substring(0, 10)}...` : null,
+            storedState: storedState ? `${storedState.substring(0, 10)}...` : null,
+            match: state === storedState,
         });
         return {
             statusCode: 400,
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
                 error: 'State mismatch. Please try signing in again.',
             }),
@@ -84,6 +113,13 @@ exports.handler = async (event, context) => {
 
     const redirectUri = `${redirectOrigin}/code`;
     const tokenEndpoint = `${clientContext.ISSUER}protocol/openid-connect/token`;
+
+    console.log('[get-token] Preparing token exchange', {
+        redirectUri,
+        tokenEndpoint,
+        codeLength: code.length,
+        stateLength: state.length,
+    });
 
     // Token exchange using Basic Auth
     const headers = {
@@ -102,8 +138,21 @@ exports.handler = async (event, context) => {
     body.audience = KEYCLOAK_AUDIENCE;
     body.resource = KEYCLOAK_AUDIENCE;
 
+    console.log('[get-token] Calling Keycloak token endpoint', {
+        tokenEndpoint,
+        redirectUri,
+        hasCode: Boolean(code),
+        scopes: SCOPES,
+        audience: KEYCLOAK_AUDIENCE,
+    });
+
     try {
         const tokenResponse = await axios.post(tokenEndpoint, qs.stringify(body), { headers });
+        console.log('[get-token] Token exchange successful', {
+            hasAccessToken: Boolean(tokenResponse.data?.access_token),
+            hasIdToken: Boolean(tokenResponse.data?.id_token),
+            hasRefreshToken: Boolean(tokenResponse.data?.refresh_token),
+        });
         const { access_token, id_token, refresh_token } = tokenResponse.data;
 
         // Decode JWT tokens to get user info (matching Flutter implementation)
@@ -142,6 +191,11 @@ exports.handler = async (event, context) => {
 
         const accessCookie = createCookie(access_token);
 
+        console.log('[get-token] Preparing successful response', {
+            userId: userInfo.sub,
+            userName: userInfo.name,
+        });
+
         return {
             statusCode: 200,
             body: JSON.stringify({
@@ -157,9 +211,20 @@ exports.handler = async (event, context) => {
             },
         };
     } catch (error) {
-        console.error('Token exchange error:', error.response?.data || error.message);
+        console.error('[get-token] Token exchange error', {
+            error: error.message,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            responseData: error.response?.data,
+            tokenEndpoint,
+            redirectUri,
+            stack: error.stack,
+        });
         return {
-            statusCode: 400,
+            statusCode: error.response?.status || 400,
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
                 message: 'Token exchange failed',
                 error: error.response?.data || error.message,

@@ -102,27 +102,92 @@ export const AuthProvider = ({ children }: Props): JSX.Element => {
         setLoginError(null);
         try {
             const redirectOrigin = isBrowser ? window.location.origin : '';
+            console.log('[AuthContext] Starting login flow', {
+                redirectOrigin,
+                currentUrl: isBrowser ? window.location.href : 'N/A',
+            });
+
             const params = new URLSearchParams();
             if (redirectOrigin) {
                 params.set('redirect_origin', redirectOrigin);
             }
             const query = params.toString();
-            const response = await fetch(`/.netlify/functions/authorization-code${query ? `?${query}` : ''}`, {
+            const authUrl = `/.netlify/functions/authorization-code${query ? `?${query}` : ''}`;
+            console.log('[AuthContext] Calling authorization endpoint', { authUrl });
+
+            const response = await fetch(authUrl, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
             });
+
+            console.log('[AuthContext] Authorization response received', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok,
+                contentType: response.headers.get('content-type'),
+                url: response.url,
+            });
+
             if (!response.ok) {
-                throw new Error('Failed to start authentication.');
+                const responseText = await response.text();
+                console.error('[AuthContext] Authorization request failed', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    responseText: responseText.substring(0, 500), // First 500 chars
+                });
+                throw new Error(`Failed to start authentication (${response.status}: ${response.statusText}).`);
             }
-            const data = (await response.json()) as { state: string; auth_url: string };
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const responseText = await response.text();
+                console.error('[AuthContext] Response is not JSON', {
+                    contentType,
+                    responseText: responseText.substring(0, 500),
+                });
+                throw new Error('Server returned non-JSON response. Check if backend functions are running.');
+            }
+
+            let data: { state: string; auth_url: string };
+            try {
+                const responseText = await response.text();
+                console.log('[AuthContext] Parsing JSON response', {
+                    responseLength: responseText.length,
+                    preview: responseText.substring(0, 200),
+                });
+                data = JSON.parse(responseText) as { state: string; auth_url: string };
+            } catch (parseError) {
+                const responseText = await response.text();
+                console.error('[AuthContext] JSON parse error', {
+                    error: parseError instanceof Error ? parseError.message : String(parseError),
+                    responseText: responseText.substring(0, 500),
+                });
+                throw new Error(
+                    `Failed to parse server response: ${
+                        parseError instanceof Error ? parseError.message : 'Unknown error'
+                    }`,
+                );
+            }
+
             if (!data.state || !data.auth_url) {
+                console.error('[AuthContext] Incomplete authorization data', { data });
                 throw new Error('Incomplete authorization parameters.');
             }
+
+            console.log('[AuthContext] Authorization successful, redirecting to Keycloak', {
+                authUrl: data.auth_url,
+                stateLength: data.state.length,
+            });
             setStateValue(data.state);
             window.location.assign(data.auth_url);
         } catch (error) {
             setIsAuthenticating(false);
             const message = error instanceof Error ? error.message : 'Unable to authenticate.';
+            console.error('[AuthContext] Login error', {
+                error,
+                message,
+                stack: error instanceof Error ? error.stack : undefined,
+            });
             setLoginError(message);
         }
     }, []);

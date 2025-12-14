@@ -533,7 +533,7 @@ const FrontPage = (): JSX.Element => {
         setDeleteTaskError(null);
     };
 
-    // TODO REMOVE MOCK: Create mock QuestionnaireResponse data for testing frontend
+    // Create mock QuestionnaireResponse data for testing frontend
     const createMockQuestionnaireResponse = async (
         task: TaskSummary,
         accessToken?: string,
@@ -567,7 +567,7 @@ const FrontPage = (): JSX.Element => {
             return;
         }
 
-        // TODO REMOVE MOCK: For testing - use mock data for ALL tasks
+        // MOCK: For testing - use mock data for ALL tasks
         // Remove this block once backend has real QuestionnaireResponse data
         // try {
         //     const mockResponse = await createMockQuestionnaireResponse(task, accessToken);
@@ -584,7 +584,7 @@ const FrontPage = (): JSX.Element => {
         //     setIsLoadingResponse(false);
         // }
         // return;
-        // // END TODO REMOVE MOCK
+        // // END MOCK
 
         // If task is still requested (not yet answered), show modal with no response
         if (task.status === 'requested') {

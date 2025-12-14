@@ -3,7 +3,7 @@ const axios = require('axios');
 const cookie = require('cookie');
 const CryptoJS = require('crypto-js');
 
-const TARGET_BASE_URL = process.env.QUESTIONNAIRE_API_URL;
+const TARGET_BASE_URL = process.env.QUESTIONNAIRE_API_URL || 'http://172.22.0.27:8080';
 const ALLOWED_METHODS = ['GET', 'POST', 'DELETE'];
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',

@@ -16,11 +16,31 @@ function randomString(length) {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 exports.handler = async (event, context) => {
+    console.log('[authorization-code] Request received', {
+        httpMethod: event.httpMethod,
+        path: event.path,
+        queryParams: event.queryStringParameters,
+        headers: {
+            origin: event.headers?.origin || event.headers?.Origin,
+            referer: event.headers?.referer || event.headers?.Referer,
+        },
+    });
+
     try {
         const client = await clientContext.createClient();
+        console.log('[authorization-code] Keycloak client created successfully');
+        
         const state = randomString(32);
         const redirectOrigin = resolveRedirectOrigin(event);
         const redirectUri = `${redirectOrigin}/code`;
+
+        console.log('[authorization-code] Resolved redirect origin', {
+            redirectOrigin,
+            redirectUri,
+            queryOrigin: event.queryStringParameters?.redirect_origin,
+            headerOrigin: event.headers?.origin || event.headers?.Origin,
+            headerReferer: event.headers?.referer || event.headers?.Referer,
+        });
 
         // Build authorization URL with optional audience/resource
         const authParams = {
@@ -34,6 +54,13 @@ exports.handler = async (event, context) => {
         authParams.audience = KEYCLOAK_AUDIENCE;
         authParams.resource = KEYCLOAK_AUDIENCE;
 
+        console.log('[authorization-code] Building authorization URL', {
+            redirectUri,
+            scopes: SCOPES,
+            audience: KEYCLOAK_AUDIENCE,
+            stateLength: state.length,
+        });
+
         const baseAuthUrl = client.authorizationUrl(authParams);
 
         let authUrl = baseAuthUrl;
@@ -45,14 +72,35 @@ exports.handler = async (event, context) => {
             }
             authUrl = url.toString();
         } catch (parseError) {
-            console.warn('[authorization-code] Failed to inspect authorization URL, using raw value', parseError);
+            console.warn('[authorization-code] Failed to inspect authorization URL, using raw value', {
+                error: parseError.message,
+                baseAuthUrl: baseAuthUrl.substring(0, 200),
+            });
         }
 
-        return { statusCode: 200, body: JSON.stringify({ state, auth_url: authUrl }) };
+        console.log('[authorization-code] Authorization URL generated successfully', {
+            authUrlLength: authUrl.length,
+            authUrlPreview: authUrl.substring(0, 200),
+        });
+
+        return {
+            statusCode: 200,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ state, auth_url: authUrl }),
+        };
     } catch (error) {
-        console.error('Error in authorization-code function:', error);
+        console.error('[authorization-code] Error in authorization-code function', {
+            error: error.message,
+            stack: error.stack,
+            name: error.name,
+        });
         return {
             statusCode: 500,
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
                 error: 'Failed to generate authorization URL',
                 message: error.message,
