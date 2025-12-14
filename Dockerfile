@@ -1,32 +1,52 @@
-# Mulit-stage build
-#   1. Build image (temporary)
-#   2. Copy output from temporary image to runnable image
-#
-# Build with:
-#   docker build -t helsenorge/skjemabygger .   
-#
-# Run with (example):
-#   docker run -p 8090:80 --rm -it --name helsenorge-skjemabygger helsenorge/skjemabygger
+# Multi-stage build for React Frontend
+# Stage 1: Build the React application
+# Stage 2: Serve with Nginx
 
-### 1. Build image (temporary) ###
-FROM node:14-bullseye-slim as build
+### Stage 1: Build ###
+FROM node:18-alpine AS build
 
-    # Set the working directory to /src
-    WORKDIR /src
+# Set working directory
+WORKDIR /app
 
-    # Copy the package.json and package-lock.json files to the container
-    COPY package*.json ./
+# Copy package files
+COPY package*.json ./
 
-    # Install dependencies
-    RUN npm install
+# Install dependencies
+RUN npm ci --only=production=false
 
-    # Copy the rest of the application code to the container
-    COPY . .
-    RUN npm run build --if-present
+# Copy source code
+COPY . .
 
-### 2 Runnable image ###
-FROM nginx:1.21.0-alpine
+# Build arguments for environment variables
+# These will be available during build time
+ARG REACT_APP_QUESTIONNAIRE_API_URL
+ARG REACT_APP_XAUTH_API_URL
+ARG REACT_APP_URL=""
 
-    COPY --from=build /src/build /usr/share/nginx/html
-    EXPOSE 80
-    CMD ["nginx", "-g", "daemon off;"]
+# Set environment variables for the build process
+# REACT_APP_URL is optional - can be set later if needed
+ENV REACT_APP_QUESTIONNAIRE_API_URL=${REACT_APP_QUESTIONNAIRE_API_URL}
+ENV REACT_APP_XAUTH_API_URL=${REACT_APP_XAUTH_API_URL}
+ENV REACT_APP_URL=${REACT_APP_URL}
+
+# Set NODE_OPTIONS for compatibility with older webpack/react-scripts
+# This fixes the OpenSSL error with Node.js 18 and increases heap size to prevent out of memory errors
+ENV NODE_OPTIONS="--openssl-legacy-provider --max-old-space-size=4096"
+
+# Build the application
+RUN npm run build
+
+### Stage 2: Serve with Nginx ###
+FROM nginx:alpine
+
+# Copy custom nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy built files from build stage
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
