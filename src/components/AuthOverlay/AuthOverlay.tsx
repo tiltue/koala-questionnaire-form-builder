@@ -17,7 +17,19 @@ const AuthOverlay = (): JSX.Element => {
                     {isAuthenticating ? 'Redirecting…' : 'Sign in'}
                 </button>
                 <p className="auth-helper">You will be redirected to finish signing in securely.</p>
-                {loginError && <p className="auth-error">{loginError}</p>}
+                {loginError && (
+                    <div className="auth-error">
+                        <p>{loginError}</p>
+                        {typeof window !== 'undefined' && (window as any).__AUTH_ERROR__ && (
+                            <details style={{ marginTop: '10px', fontSize: '12px', opacity: 0.8 }}>
+                                <summary>Technical Details</summary>
+                                <pre style={{ marginTop: '5px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                    {JSON.stringify((window as any).__AUTH_ERROR__, null, 2)}
+                                </pre>
+                            </details>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

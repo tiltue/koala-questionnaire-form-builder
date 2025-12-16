@@ -81,7 +81,22 @@ exports.handler = async (event, context) => {
         console.log('[authorization-code] Authorization URL generated successfully', {
             authUrlLength: authUrl.length,
             authUrlPreview: authUrl.substring(0, 200),
+            fullAuthUrl: authUrl, // Log full URL for debugging
         });
+
+        // Validate the auth URL before returning
+        try {
+            const url = new URL(authUrl);
+            if (!url.hostname || !url.pathname) {
+                throw new Error('Invalid URL structure');
+            }
+        } catch (urlError) {
+            console.error('[authorization-code] Generated invalid auth URL', {
+                authUrl,
+                error: urlError.message,
+            });
+            throw new Error(`Failed to generate valid authorization URL: ${urlError.message}`);
+        }
 
         return {
             statusCode: 200,
